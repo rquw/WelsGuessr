@@ -865,18 +865,16 @@ var S = {
 
 /* ── Daily timer ── */
 function getMsUntilNextDay() {
-  var now = new Date();
-  var vienna = new Intl.DateTimeFormat('en-GB', {
-    timeZone:'Europe/Vienna', year:'numeric', month:'2-digit', day:'2-digit',
-    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
-  }).formatToParts(now);
-  var vp = {};
-  vienna.forEach(function(p) { if (p.type !== 'literal') vp[p.type] = p.value; });
-  var midnight = new Date(Date.UTC(+vp.year, +vp.month-1, +vp.day, 23, 59, 59, 999));
-  // find next midnight in UTC accounting for Vienna offset
-  var offsetMs = now.getTime() - new Date(Date.UTC(+vp.year, +vp.month-1, +vp.day, +vp.hour, +vp.minute, +vp.second)).getTime();
-  var nextMidnight = new Date(Date.UTC(+vp.year, +vp.month-1, +vp.day+1, 0, 0, 0) - offsetMs);
-  return nextMidnight.getTime() - now.getTime();
+  const now = new Date();
+
+  const viennaNow = new Date(
+    now.toLocaleString("en-US", { timeZone: "Europe/Vienna" })
+  );
+
+  const nextMidnightVienna = new Date(viennaNow);
+  nextMidnightVienna.setHours(24, 0, 0, 0);
+
+  return nextMidnightVienna.getTime() - viennaNow.getTime();
 }
 function fmtCountdown(ms) {
   if (ms < 0) ms = 0;
