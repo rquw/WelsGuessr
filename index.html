@@ -551,7 +551,7 @@ body::before{
       <div class="info-section-label">Rechtliches</div>
       <div class="info-section-title">Hinweise</div>
       <div class="info-section-body">
-        Diese Website hat nichts mit irgendwas Offiziellem zu tun. Ich, ein Einwohner, hat als Passion-Projekt diese Website selbst mit Liebe erstellt. Bilder/Panoramas sind direkt von der Google Street View API gezogen.
+        Diese Website hat nichts mit irgendwas Offiziellem zu tun. Ich, selbst ein Ternberg-Einwohner, hat als Passion-Projekt diese Website selbst mit Liebe erstellt. Bilder/Panoramas sind direkt von der Google Street View API gezogen.
       </div>
       <div class="info-legal-warn">
         ⚠ Bitte nimm kein Passwort, das du regulär benützt, für einen Account auf dieser Website.
@@ -568,14 +568,14 @@ body::before{
 <div class="screen" id="play-menu-screen">
   <div class="logo" style="margin-bottom:1.2rem">
     <h1 style="transform:none;opacity:1;font-size:clamp(1.8rem,7vw,3.4rem)">Spielen</h1>
-    <p style="transform:none;opacity:1">Wähle einen Modus</p>
+    <p style="transform:none;opacity:1">Wähle einen Modus!</p>
   </div>
   <div class="menu-grid">
     <div class="menu-card" onclick="startSolo()">
       <div class="menu-card-bg" id="solo-card-bg"></div>
       <div class="menu-card-content">
         <div class="menu-card-title">Einzelspieler</div>
-        <div class="menu-card-sub">5 Runden. Weißt du wo du bist?</div>
+        <div class="menu-card-sub">5 Runden. Weißt du wo das Bild ist?</div>
       </div>
       <div class="menu-card-content" style="margin-top:.7rem">
         <button class="big-btn primary" style="padding:.75rem 1rem;width:100%">Starten</button>
@@ -584,8 +584,8 @@ body::before{
     <div class="menu-card" onclick="openVsModal()">
       <div class="menu-card-bg" id="vs-card-bg"></div>
       <div class="menu-card-content">
-        <div class="menu-card-title">Gegeneinander</div>
-        <div class="menu-card-sub">Erstelle einen Raum oder tritt einem Freund bei.</div>
+        <div class="menu-card-title">1v1</div>
+        <div class="menu-card-sub">Wer ist der wahre Ternberger?</div>
       </div>
       <div class="menu-card-content" style="margin-top:.7rem">
         <button class="big-btn" style="padding:.75rem 1rem;width:100%">Starten</button>
@@ -608,7 +608,7 @@ body::before{
       <div class="menu-card-content" style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;flex-wrap:wrap">
         <div>
           <div class="menu-card-title">Tägliche Challenge</div>
-          <div class="menu-card-sub">Jeden Tag ein neuer Spot. Gleich für alle. Ein Versuch.</div>
+          <div class="menu-card-sub">Jeden Tag ein neuer Spot der gleich für alle ist. Du hast aber nur ein Versuch. Lass ihn zählen.</div>
         </div>
         <span class="daily-timer-small" id="menu-daily-timer">00:00:00</span>
       </div>
@@ -629,7 +629,7 @@ body::before{
         <div class="daily-kicker">Tägliche Challenge</div>
         <div class="daily-title">Ein Spot.<br>Jeden Tag neu.</div>
         <div class="daily-date" id="daily-date-label">—</div>
-        <div class="daily-desc">Jeden Tag kommt ein neuer Spot.<br>Gleich für alle.<br><br>Ein Versuch. Dein Score landet nur im heutigen Daily-Board.</div>
+        <div class="daily-desc">Jeden Tag kommt ein neuer Spot der gleich für alle ist.<br>Du hast nur einen Versuch.<br><br>Lass ihn zählen.</div>
         <div style="display:flex;flex-direction:column;gap:.4rem">
           <div style="font-size:.6rem;color:var(--mist);text-transform:uppercase;letter-spacing:.14em">Nächster Spot in</div>
           <span class="daily-timer" id="daily-screen-timer">00:00:00</span>
@@ -715,7 +715,7 @@ body::before{
       </div>
       <div class="vs-panel">
         <div class="vs-panel-title">Raum beitreten</div>
-        <p class="modal-hint">Gib den Code deines Freundes ein.</p>
+        <p class="modal-hint">Gib den Code von deinem Gegner ein.</p>
         <input class="modal-input" id="vs-join-name" placeholder="Dein Name" maxlength="20">
         <input class="modal-input" id="vs-join-code" placeholder="Raumcode (z.B. ABC123)" maxlength="6" style="text-transform:uppercase">
         <div class="modal-error" id="vs-join-error"></div>
@@ -986,7 +986,7 @@ var sfx = {
 // ── Survival Mode Config ──
 // Punkte-Schwellen pro Runde (1-12), erste runden niedrig, dann steil hoch
 // Runde 1: 100, Runde 12: ~4800. Kurve ist exponentiell.
-var SURVIVAL_THRESHOLDS = [100, 200, 350, 550, 800, 1100, 1500, 2000, 2700, 3400, 4100, 4800];
+var SURVIVAL_THRESHOLDS = [500, 700, 800, 1450, 1600, 1700, 1800, 2000, 2700, 3400, 4100, 4800];
 var SURVIVAL_ROUNDS = 12;
 
 function getSurvivalThreshold(round) {
@@ -1300,17 +1300,17 @@ function getDailyLocationForKey(key) {
 
 function verdict(p) {
   var v = [
-    [4900, 'Perfekt. Bist du von hier aufgewachsen?'],
-    [4700, 'Fast nix daneben. Respekt.'],
-    [4400, 'Sehr stark. Kennst dich aus.'],
-    [4000, 'Solide Leistung.'],
-    [3300, 'Ganz ordentlich.'],
-    [2500, 'Nicht schlecht, aber Luft nach oben.'],
+    [4900, 'Jap, ich glaub da warst schonmal'],
+    [4700, 'Der war gut.'],
+    [4400, 'Sehr stark.'],
+    [4000, 'Ganz solid.'],
+    [3300, 'Ist ok.'],
+    [2500, 'Jo.. schaffst bessa.'],
     [1800, 'Da geht mehr.'],
-    [1000, 'Irgendwo in \u00d6sterreich, passt schon.'],
-    [400, 'War das geraten?'],
-    [100, "Versuch's nochmal."],
-    [0, 'Das war wohl nix.']
+    [1000, 'Irgendwo in \u00d6sterreich..'],
+    [400, 'Der war geraten.'],
+    [100, "Du probierst so wenig Punkte wie möglich zu bekommen oder..?"],
+    [0, 'Der wars ned.']
   ];
   for (var i = 0; i < v.length; i++) { if (p >= v[i][0]) return v[i][1]; }
   return 'Ernsthaft?';
