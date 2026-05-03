@@ -2,18 +2,19 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TernberGuessr</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 <div id="round-flash"></div>
 <div id="dc-notice"></div>
 <div id="round-popup"></div>
 <div id="confetti-layer"></div>
+<div id="new-highscore-banner"><span>🏆 NEUER HIGHSCORE!</span></div>
 <div class="screen-backdrop" id="screen-backdrop"></div>
 <div id="share-canvas-wrap"><canvas id="share-canvas"></canvas></div>
 
@@ -33,7 +34,7 @@
     <div id="survival-intro-round-label">Runde</div>
     <div id="survival-intro-round-num">1 / 12</div>
     <div id="survival-intro-divider"></div>
-    <div id="survival-intro-threshold-label">Mindestpunkte</div>
+    <div id="survival-intro-threshold-label">Zielpunkte</div>
     <div id="survival-intro-threshold-num">500</div>
   </div>
 </div>
@@ -50,9 +51,9 @@
         <div id="survival-score-threshold-marker"></div>
       </div>
       <div id="survival-score-bar-labels">
-        <span>0</span>
+        <span style="position:absolute;left:0">0</span>
         <span id="survival-score-threshold-label-bar"></span>
-        <span>5000</span>
+        <span style="position:absolute;right:0">5000</span>
       </div>
     </div>
     <div id="survival-score-verdict"></div>
@@ -86,14 +87,17 @@
 <!-- START -->
 <div class="screen active" id="start-screen">
   <div class="logo">
-    <h1 id="logo-h1">Ternber<em>Guessr</em></h1>
+    <h1 id="logo-h1" onclick="triggerLogoAnim()" title="">Ternber<em>Guessr</em></h1>
     <p id="logo-p">wie gut kennst du ternberg?</p>
   </div>
   <div id="streak-display-start" style="display:none"></div>
   <div class="start-main" id="start-main">
     <button class="big-btn primary" onclick="openPlayMenu()">Spielen</button>
     <button class="big-btn" onclick="openLeaderboard()">Bestenliste</button>
-    <button class="info-btn-small" onclick="openInfoScreen()">Info</button>
+    <div class="start-btn-row">
+      <button class="info-btn-small" onclick="openInfoScreen()">Info</button>
+      <button class="info-btn-small changelog-inline-btn" onclick="openChangelog()">📰 Was ist neu?</button>
+    </div>
   </div>
   <div class="footer-made">Website mit Liebe von Fabio erstellt.</div>
   <button id="auth-btn" class="logged-out" onclick="handleAuthBtn()">Anmelden</button>
@@ -139,7 +143,8 @@
     <p style="transform:none;opacity:1">Wähle einen Modus</p>
   </div>
   <div class="menu-grid">
-    <div class="menu-card" onclick="startSolo()">
+    <!-- ROW 1: Einzelspieler (hero, full width) -->
+    <div class="menu-card menu-card-hero" onclick="startSolo()">
       <div class="menu-card-bg" id="solo-card-bg"></div>
       <div class="menu-card-left">
         <div class="menu-card-title">Einzelspieler</div>
@@ -149,6 +154,21 @@
         <button class="menu-card-cta gold" onclick="startSolo();event.stopPropagation()">Starten →</button>
       </div>
     </div>
+    <!-- ROW 2: Tägliche Challenge (full width) -->
+    <div class="menu-card daily-card" onclick="openDailyScreen()">
+      <div class="menu-card-bg" id="daily-card-bg"></div>
+      <div class="menu-card-left">
+        <div class="menu-card-title">Tägliche Challenge</div>
+        <div class="menu-card-sub" style="display:flex;flex-direction:column;gap:.25rem">
+          <span>Ein Spot, jeden Tag neu.</span>
+          <span class="daily-timer-small" id="menu-daily-timer">00:00:00</span>
+        </div>
+      </div>
+      <div class="menu-card-right">
+        <button class="menu-card-cta gold" onclick="openDailyScreen();event.stopPropagation()">Ansehen →</button>
+      </div>
+    </div>
+    <!-- ROW 3: 1v1 + Hitzewelle side by side -->
     <div class="menu-card" onclick="openVsModal()">
       <div class="menu-card-bg" id="vs-card-bg"></div>
       <div class="menu-card-left">
@@ -168,19 +188,6 @@
       </div>
       <div class="menu-card-right">
         <button class="menu-card-cta ember" onclick="startSurvival();event.stopPropagation()">Durchhalten →</button>
-      </div>
-    </div>
-    <div class="menu-card daily-card" onclick="openDailyScreen()">
-      <div class="menu-card-bg" id="daily-card-bg"></div>
-      <div class="menu-card-left">
-        <div class="menu-card-title">Tägliche Challenge</div>
-        <div class="menu-card-sub" style="display:flex;flex-direction:column;gap:.25rem">
-          <span>Ein Spot, jeden Tag neu.</span>
-          <span class="daily-timer-small" id="menu-daily-timer">00:00:00</span>
-        </div>
-      </div>
-      <div class="menu-card-right">
-        <button class="menu-card-cta gold" onclick="openDailyScreen();event.stopPropagation()">Ansehen →</button>
       </div>
     </div>
   </div>
@@ -214,6 +221,10 @@
         <span class="daily-small" id="daily-board-date">—</span>
       </div>
       <div id="daily-lb-list"><div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Lade…</div></div>
+      <div id="daily-champions-section" style="display:none">
+        <div class="daily-champions-title">🏆 Champions von gestern</div>
+        <div id="daily-champions-list"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -315,6 +326,7 @@
 
 <!-- SPIEL -->
 <div class="screen" id="game-screen">
+  <button id="back-to-home-btn" onclick="goHomeFromGame()" title="Zurück zum Hauptmenü">← Menü</button>
   <div id="pano-container">
     <div id="pano-strip"></div>
     <div id="pano-error">
@@ -334,12 +346,9 @@
   <div id="map-panel">
     <div id="map-el"></div>
     <div id="map-footer">
-      <div style="display:flex;gap:.35rem">
-        <button class="map-btn" onclick="toggleExpand()" title="Vergrößern">⤢</button>
-        <button class="map-btn" onclick="clearPin()" title="Pin entfernen">✕</button>
-      </div>
+      <button class="map-btn map-btn-expand" onclick="toggleExpand()" title="Karte vergrößern">⤢ Vergrößern</button>
       <span id="pin-hint">Karte anklicken</span>
-      <button id="guess-btn" disabled onclick="submitGuess()">Raten → <span class="kbd-hint">SPACE</span></button>
+      <button id="guess-btn" disabled onclick="submitGuess()">Raten → <span class="kbd-hint kbd-hint-dark">SPACE</span></button>
     </div>
   </div>
   <button id="vs-skip-pano-btn" onclick="voteSkipPano()" style="display:none">Anderes Panorama? (0/2)</button>
@@ -439,8 +448,8 @@
 <!-- ANMELDEN MODAL -->
 <div class="modal-bg" id="login-modal">
   <div class="modal" id="login-modal-inner">
-    <h2>Anmelden</h2>
-    <p class="modal-hint">Melde dich an um Punkte automatisch zu speichern.</p>
+    <h2 style="font-size:1.5rem;text-align:center;line-height:1.2">Hast du schon einen Account?</h2>
+    <p class="modal-hint" style="text-align:center">Melde dich an oder erstelle einen neuen — damit werden deine Punkte automatisch gespeichert.</p>
     <div class="account-toggle" style="margin-bottom:.25rem">
       <button class="toggle-btn" id="login-toggle-no" onclick="setLoginMode('new')">Neuer Account</button>
       <button class="toggle-btn" id="login-toggle-yes" onclick="setLoginMode('existing')">Einloggen</button>
@@ -458,7 +467,49 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="data.js"></script>
-<script src="script.js"></script>
+<script src="data.js?v=2"></script>
+<script src="script.js?v=2"></script>
+<!-- CHANGELOG MODAL -->
+<div class="modal-bg" id="changelog-modal">
+  <div class="modal changelog-modal-inner" id="changelog-modal-inner">
+    <div class="changelog-header">
+      <div class="changelog-masthead">
+        <div class="changelog-masthead-eyebrow">OFFIZIELLES UPDATE-PROTOKOLL</div>
+        <div class="changelog-masthead-title">TernberGuessr</div>
+        <div class="changelog-masthead-sub">Alle Änderungen, Verbesserungen &amp; Neuerungen</div>
+        <div class="changelog-masthead-line"></div>
+      </div>
+      <button class="changelog-close-btn" onclick="closeModal('changelog-modal')">&#x2715;</button>
+    </div>
+    <div class="changelog-list" id="changelog-list">
+      <div style="font-size:.7rem;color:var(--mist);text-align:center;padding:2rem">Lade…</div>
+    </div>
+    <div id="changelog-admin-bar" style="display:none" class="changelog-admin-bar">
+      <button class="big-btn primary" style="font-size:.7rem;padding:.5rem 1rem" onclick="openChangelogEditor(null)">&#x270F;&#xFE0F; Neuer Eintrag</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGELOG EDITOR MODAL -->
+<div class="modal-bg" id="changelog-editor-modal">
+  <div class="modal" style="max-width:520px;gap:.8rem">
+    <h2>Update-Eintrag</h2>
+    <div style="display:flex;gap:.5rem">
+      <input class="modal-input" id="cl-edit-date" type="date" style="flex:1">
+      <input class="modal-input" id="cl-edit-version" type="text" placeholder="v1.0" maxlength="20" style="width:90px">
+      <input class="modal-input" id="cl-edit-icon" type="text" placeholder="&#x1F525;" maxlength="8" style="width:70px;text-align:center;font-size:1.3rem">
+    </div>
+    <input class="modal-input" id="cl-edit-title" type="text" placeholder="Titel des Updates" maxlength="80">
+    <textarea class="modal-input" id="cl-edit-body" placeholder="Beschreibung &#x2014; eine Zeile = ein Aufzählungspunkt" rows="6" style="resize:vertical;font-family:inherit;line-height:1.6"></textarea>
+    <input class="modal-input" id="cl-edit-image" type="text" placeholder="Bild-URL (optional, z.B. images/...)" maxlength="300">
+    <input type="hidden" id="cl-edit-id">
+    <div class="modal-error" id="cl-edit-error"></div>
+    <div class="modal-row">
+      <button class="big-btn primary" onclick="saveChangelogEntry()" style="flex:1">Speichern</button>
+      <button class="big-btn" onclick="closeModal('changelog-editor-modal')" style="flex:1">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
