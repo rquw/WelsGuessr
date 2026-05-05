@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -34,7 +34,7 @@
     <div id="survival-intro-round-label">Runde</div>
     <div id="survival-intro-round-num">1 / 12</div>
     <div id="survival-intro-divider"></div>
-    <div id="survival-intro-threshold-label">Zielpunkte</div>
+    <div id="survival-intro-threshold-label">Mindestpunkte diese Runde</div>
     <div id="survival-intro-threshold-num">500</div>
   </div>
 </div>
@@ -101,6 +101,7 @@
   </div>
   <div class="footer-made">Website mit Liebe von Fabio erstellt.</div>
   <button id="auth-btn" class="logged-out" onclick="handleAuthBtn()">Anmelden</button>
+  <button id="profile-btn" onclick="openProfile()" title="Mein Profil" aria-label="Profil öffnen">👤</button>
 </div>
 
 <!-- INFO SCREEN -->
@@ -184,7 +185,7 @@
       <div class="menu-card-left">
         <div id="survival-neu-badge" class="survival-badge">Neu</div>
         <div class="menu-card-title">Hitzewelle</div>
-        <div class="menu-card-sub">12 Runden. Mindestpunktzahl steigt.</div>
+        <div class="menu-card-sub">12 Runden. Jede Runde musst du eine Mindestpunktzahl erreichen — sonst bist du raus.</div>
       </div>
       <div class="menu-card-right">
         <button class="menu-card-cta ember" onclick="startSurvival();event.stopPropagation()">Durchhalten →</button>
@@ -283,26 +284,34 @@
 
 <!-- VS MODAL -->
 <div class="modal-bg" id="vs-modal">
-  <div class="modal" id="vs-modal-inner" style="max-width:min(680px,95vw);width:min(680px,95vw)">
+  <div class="modal" id="vs-modal-inner" style="max-width:min(500px,95vw);width:min(500px,95vw)">
     <h2>Gegeneinander</h2>
-    <div class="vs-modal-grid">
-      <div class="vs-panel">
-        <div class="vs-panel-title">Raum erstellen</div>
-        <p class="modal-hint">Erstelle einen Raum und teile den Code.</p>
-        <input class="modal-input" id="vs-host-name" placeholder="Dein Name" maxlength="20">
-        <button class="big-btn primary" onclick="createRoom()" style="width:100%">Erstellen</button>
-      </div>
-      <div class="vs-panel">
-        <div class="vs-panel-title">Raum beitreten</div>
-        <p class="modal-hint">Gib den Code von deinem Gegner ein.</p>
-        <input class="modal-input" id="vs-join-name" placeholder="Dein Name" maxlength="20">
-        <input class="modal-input" id="vs-join-code" placeholder="Raumcode (z.B. ABC123)" maxlength="6" style="text-transform:uppercase">
-        <div class="modal-error" id="vs-join-error"></div>
-        <button class="big-btn" onclick="joinRoom()" style="width:100%">Beitreten</button>
-        <button class="vs-scan-btn" onclick="openQrScanner()">📷 QR scannen</button>
-      </div>
+    <!-- Auswahl -->
+    <div id="vs-choice-btns" style="display:flex;flex-direction:column;gap:.75rem;align-items:center">
+      <p class="modal-hint" style="text-align:center;margin-bottom:.25rem">Willst du eine Runde erstellen oder beitreten?</p>
+      <button class="big-btn primary" style="width:100%;padding:.9rem" onclick="showVsPanel('create')">Runde erstellen</button>
+      <button class="big-btn" style="width:100%;padding:.9rem" onclick="showVsPanel('join')">Runde beitreten</button>
     </div>
-    <button class="big-btn" style="align-self:flex-end;font-size:.72rem;padding:.65rem 1rem" onclick="closeModal('vs-modal')">Schließen</button>
+    <!-- Erstellen-Panel -->
+    <div id="vs-create-panel" style="display:none;flex-direction:column;gap:.75rem">
+      <p class="modal-hint">Erstellt sofort einen Raum. Teile den Code mit deinem Gegner.</p>
+      <button class="big-btn primary" style="width:100%" onclick="createRoom()">Raum erstellen</button>
+    </div>
+    <!-- Beitreten-Panel -->
+    <div id="vs-join-panel" style="display:none;flex-direction:column;gap:.75rem">
+      <p class="modal-hint">Gib den Code von deinem Gegner ein.</p>
+      <input class="modal-input" id="vs-join-name" placeholder="Dein Name" maxlength="20" style="display:none">
+      <input class="modal-input" id="vs-join-code" placeholder="Raumcode (z.B. ABC123)" maxlength="6" style="text-transform:uppercase">
+      <div class="modal-error" id="vs-join-error"></div>
+      <button class="big-btn" onclick="joinRoom()" style="width:100%">Beitreten</button>
+      <button class="vs-scan-btn" onclick="openQrScanner()">📷 QR scannen</button>
+    </div>
+    <!-- verstecktes Feld für Host-Namen -->
+    <input type="hidden" id="vs-host-name">
+    <div style="display:flex;gap:.6rem;justify-content:flex-end">
+      <button class="big-btn" id="vs-modal-back-btn" style="display:none;font-size:.72rem;padding:.65rem 1rem" onclick="showVsChoice()">← Zurück</button>
+      <button class="big-btn" style="font-size:.72rem;padding:.65rem 1rem" onclick="closeModal('vs-modal')">Schließen</button>
+    </div>
   </div>
 </div>
 
@@ -327,6 +336,13 @@
 <!-- SPIEL -->
 <div class="screen" id="game-screen">
   <button id="back-to-home-btn" onclick="goHomeFromGame()" title="Zurück zum Hauptmenü">← Menü</button>
+  <div id="top-bar">
+    <div id="round-badge">Runde <span id="round-num">1</span> / <span id="round-total">5</span></div>
+    <div id="score-badge">◆ <span id="score-display">0</span></div>
+    <div id="top-bar-diff">Schwierigkeit: Unbestimmt</div>
+  </div>
+  <div id="vs-badge"></div>
+  <div id="survival-badge"></div>
   <div id="pano-container">
     <div id="pano-strip"></div>
     <div id="pano-error">
@@ -335,12 +351,6 @@
     </div>
     <div class="pano-hint" id="drag-hint">ziehen zum Umsehen · scrollen zum Zoomen</div>
     <div id="compass">N</div>
-    <div id="top-bar">
-      <div id="round-badge">Runde <span id="round-num">1</span> / <span id="round-total">5</span></div>
-      <div id="score-badge">◆ <span id="score-display">0</span></div>
-    </div>
-    <div id="vs-badge"></div>
-    <div id="survival-badge"></div>
     <button id="vol-btn" onclick="cycleVolume()">🔊 <span id="vol-label">100%</span></button>
   </div>
   <div id="map-panel">
@@ -372,6 +382,17 @@
     </div>
     <div id="score-verdict"></div>
     <div id="survival-threshold-row"></div>
+    <!-- Schwierigkeit bewerten direkt im Result-Footer, kein Overlay-Pflicht mehr -->
+    <div id="inline-diff-rating" style="display:none">
+      <div class="inline-diff-label">Wie schwer war der Spot?</div>
+      <div class="inline-diff-stars">
+        <button class="diff-star" data-r="1" onclick="submitDifficultyRating(1)">&#9733;</button>
+        <button class="diff-star" data-r="2" onclick="submitDifficultyRating(2)">&#9733;</button>
+        <button class="diff-star" data-r="3" onclick="submitDifficultyRating(3)">&#9733;</button>
+        <button class="diff-star" data-r="4" onclick="submitDifficultyRating(4)">&#9733;</button>
+        <button class="diff-star" data-r="5" onclick="submitDifficultyRating(5)">&#9733;</button>
+      </div>
+    </div>
     <div id="vs-submit-countdown"></div>
     <div id="vs-strip">
       <div class="vs-strip-row" style="margin-bottom:.45rem">
@@ -468,7 +489,9 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=2"></script>
-<script src="script.js?v=2"></script>
+<script src="text.js?v=1"></script>
+<script src="script.js?v=8"></script>
+<script src="patches.js?v=5"></script>
 <!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">
   <div class="modal changelog-modal-inner" id="changelog-modal-inner">
@@ -511,5 +534,72 @@
   </div>
 </div>
 
+
+<!-- DIFFICULTY RATING OVERLAY -->
+<div id="difficulty-overlay">
+  <div id="difficulty-box">
+    <div class="diff-title">Wie schwer war dieser Spot?</div>
+    <div class="diff-stars" id="diff-stars">
+      <button class="diff-star" data-r="1" onclick="submitDifficultyRating(1)">&#9733;</button>
+      <button class="diff-star" data-r="2" onclick="submitDifficultyRating(2)">&#9733;</button>
+      <button class="diff-star" data-r="3" onclick="submitDifficultyRating(3)">&#9733;</button>
+      <button class="diff-star" data-r="4" onclick="submitDifficultyRating(4)">&#9733;</button>
+      <button class="diff-star" data-r="5" onclick="submitDifficultyRating(5)">&#9733;</button>
+    </div>
+    <button class="diff-skip" onclick="closeDifficultyOverlay()">Überspringen</button>
+  </div>
+</div>
+
+<!-- HEATMAP MODAL -->
+<div class="modal-bg" id="heatmap-modal">
+  <div class="modal" style="max-width:min(700px,96vw);width:min(700px,96vw);gap:.75rem">
+    <h2>Heatmap</h2>
+    <div id="heatmap-el" style="height:420px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.08)"></div>
+    <div style="font-size:.6rem;color:var(--mist);text-align:center" id="heatmap-hint">Lade...</div>
+    <button class="big-btn" onclick="closeModal('heatmap-modal')" style="align-self:flex-end;padding:.6rem 1.2rem;font-size:.72rem">Schließen</button>
+  </div>
+</div>
+
+<!-- PROFILE SCREEN -->
+<div class="screen" id="profile-screen" style="overflow-y:auto;justify-content:flex-start;padding:2rem 1rem 4rem">
+  <div class="profile-layout">
+    <div class="profile-header">
+      <div class="profile-avatar" id="profile-avatar">?</div>
+      <div class="profile-header-info">
+        <div class="profile-name" id="profile-name-display">—</div>
+        <div class="profile-since" id="profile-since"></div>
+      </div>
+    </div>
+    <div class="profile-stats-grid">
+      <div class="profile-stat">
+        <div class="profile-stat-val" id="ps-games">—</div>
+        <div class="profile-stat-label">Spiele</div>
+      </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val" id="ps-best">—</div>
+        <div class="profile-stat-label">Bestes Spiel</div>
+      </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val gold" id="ps-avg">—</div>
+        <div class="profile-stat-label">Ø Punkte</div>
+      </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val ember" id="ps-streak">—</div>
+        <div class="profile-stat-label">Streak 🔥</div>
+      </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val" id="ps-dailies">—</div>
+        <div class="profile-stat-label">Dailies gespielt</div>
+      </div>
+    </div>
+    <div class="profile-section-title">Erfolge</div>
+    <div id="profile-achievements"></div>
+    <div class="profile-section-title" style="margin-top:.5rem">Letzte Spiele</div>
+    <div id="profile-recent-scores"></div>
+    <div style="display:flex;justify-content:center;margin-top:1.5rem">
+      <button class="big-btn" onclick="goHome()" style="padding:.8rem 2rem">← Zurück</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

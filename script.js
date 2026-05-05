@@ -63,25 +63,43 @@ function chord(freqs,type,dur,vol,delay) {
 }
 
 var sfx = {
-  fireCrackle: function(){
-    if(VOL===0) return;
-    try{
-      var len=Math.floor(AC.sampleRate*0.22);
-      var buf=AC.createBuffer(1,len,AC.sampleRate);
-      var d=buf.getChannelData(0);
-      for(var i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,0.3)*0.5;
-      var src=AC.createBufferSource(); src.buffer=buf;
-      var f=AC.createBiquadFilter(); f.type='bandpass';
-      f.frequency.value=400+Math.random()*600; f.Q.value=0.7;
-      var g=AC.createGain(); g.gain.value=0.18*VOL;
-      src.connect(f); f.connect(g); g.connect(AC.destination);
-      src.start(AC.currentTime); src.stop(AC.currentTime+0.23);
-    }catch(e){}
+  fireCrackle: function(){},
+  pin_placed: function(){
+    // kleines, sattes Klack wenn der Pin gesetzt wird
+    tone(520,'sine',.035,.09); tone(780,'sine',.05,.06,0,.018); tone(1040,'sine',.04,.04,0,.035);
   },
-  pin_placed: function(){tone(680,'sine',.04,.08);tone(1020,'sine',.07,.05,0,.02);tone(1360,'sine',.05,.03,0,.04);},
-  guess: function(){chord([220,277,330],'sine',.18,.07);chord([330,415,494],'sine',.14,.05,.06);tone(660,'sine',.2,.06,0,.1);},
+  guess: function(){
+    // Raten-Button: markanteres Woosh
+    chord([260,330,392],'sine',.22,.08);
+    chord([392,494,587],'sine',.17,.06,.08);
+    tone(784,'sine',.25,.07,0,.14);
+    tone(1047,'sine',.12,.04,0,.22);
+  },
   roundIntro: function(n){tone(330+n*22,'sine',.1,.09);tone(495+n*33,'sine',.14,.07,0,.07);tone(660+n*44,'sine',.1,.05,0,.13);},
-  survivalIntro: function(n){tone(220,'sawtooth',.06,.05);tone(330+n*18,'sine',.12,.09,0,.04);tone(495+n*25,'sine',.16,.07,0,.1);tone(660+n*32,'sine',.12,.05,0,.16);},
+  survivalIntro: function(n){
+    if(VOL===0) return;
+    // Dramatisches Feuerbrum + aufsteigender Swoosh
+    var t=AC.currentTime;
+    // Tiefes Dröhnen
+    tone(55+n*4,'sawtooth',.35,.06,0,0);
+    tone(82+n*6,'sawtooth',.28,.05,200,0);
+    // Flammen-Swoosh (Rauschen aufsteigend)
+    var len=Math.floor(AC.sampleRate*0.5);
+    var buf=AC.createBuffer(1,len,AC.sampleRate);
+    var d=buf.getChannelData(0);
+    for(var i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(i/len,0.4)*Math.pow(1-i/len,1.5);
+    var src=AC.createBufferSource(); src.buffer=buf;
+    var f=AC.createBiquadFilter(); f.type='bandpass';
+    f.frequency.setValueAtTime(200,t); f.frequency.exponentialRampToValueAtTime(2000+n*80,t+0.5);
+    f.Q.value=0.5;
+    var g=AC.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.22*VOL,t+0.1); g.gain.exponentialRampToValueAtTime(0.001,t+0.5);
+    src.connect(f); f.connect(g); g.connect(AC.destination);
+    src.start(t); src.stop(t+0.55);
+    // Aufsteigender Ton
+    tone(110+n*18,'sine',.4,.07,0,.05);
+    tone(220+n*25,'sine',.3,.05,0,.15);
+    tone(440+n*32,'sine',.2,.04,0,.28);
+  },
   eliminated: function(){tone(330,'sine',.08,.1);tone(277,'sine',.12,.09,0,.1);tone(220,'sine',.18,.08,0,.2);tone(185,'sawtooth',.5,.06,0,.35);tone(165,'sawtooth',.4,.05,0,.65);},
   next: function(){tone(440,'sine',.09,.09);tone(660,'sine',.12,.07,0,.07);tone(880,'sine',.1,.05,0,.13);},
   bad: function(){tone(250,'sawtooth',.12,.07);tone(210,'sawtooth',.18,.06,0,.1);tone(175,'triangle',.3,.05,0,.2);tone(150,'triangle',.25,.04,0,.35);},
@@ -154,28 +172,52 @@ var S = {
 };
 
 // ── Daily Streak ──
-function getStreakData() {
-  try { var raw=localStorage.getItem('tg_daily_streak'); if(!raw) return {count:0,lastDate:''}; return JSON.parse(raw); }
-  catch(e) { return {count:0,lastDate:''}; }
-}
-function updateStreak(dateKey) {
-  var data=getStreakData(), today=dateKey||getViennaDateKey(), yesterday=getYesterdayKey(), newCount;
-  if(data.lastDate===today) return data.count;
-  newCount=(data.lastDate===yesterday)?(data.count||0)+1:1;
-  try{localStorage.setItem('tg_daily_streak',JSON.stringify({count:newCount,lastDate:today}));}catch(e){}
-  return newCount;
-}
 function getYesterdayKey() {
   var p=getViennaParts(), d=new Date(Date.UTC(p.year,p.month-1,p.day,12,0,0));
   d.setUTCDate(d.getUTCDate()-1); return d.toISOString().slice(0,10);
 }
-function renderStreakDisplay(containerId) {
+function getStreakDataLocal() {
+  try { var raw=localStorage.getItem('tg_daily_streak'); if(!raw) return {count:0,lastDate:''}; return JSON.parse(raw); }
+  catch(e) { return {count:0,lastDate:''}; }
+}
+function setStreakDataLocal(count, lastDate) {
+  try{localStorage.setItem('tg_daily_streak',JSON.stringify({count:count,lastDate:lastDate}));}catch(e){}
+}
+async function updateStreak(dateKey) {
+  var today=dateKey||getViennaDateKey(), yesterday=getYesterdayKey();
+  if(S.isLoggedIn) {
+    try {
+      var rows=await sbFetch('players?name=ilike.'+encodeURIComponent(S.loggedInName)+'&select=streak_count,streak_last_date');
+      if(!rows||!rows.length) return 0;
+      var cur=rows[0], count=cur.streak_count||0, last=cur.streak_last_date||'';
+      if(last===today) return count;
+      var newCount=(last===yesterday)?count+1:1;
+      await sbFetch('players?name=ilike.'+encodeURIComponent(S.loggedInName),'PATCH',{streak_count:newCount,streak_last_date:today});
+      return newCount;
+    } catch(e) { return 0; }
+  }
+  var data=getStreakDataLocal();
+  if(data.lastDate===today) return data.count;
+  var newCount=(data.lastDate===yesterday)?(data.count||0)+1:1;
+  setStreakDataLocal(newCount,today);
+  return newCount;
+}
+async function renderStreakDisplay(containerId) {
   var el=$(containerId); if(!el) return;
-  var data=getStreakData(), streak=data.count||0, today=getViennaDateKey(), yesterday=getYesterdayKey();
-  // Only reset the streak if the last play was before yesterday (missed a day)
-  if(data.lastDate && data.lastDate!==today && data.lastDate!==yesterday){
-    streak=0;
-    try{localStorage.setItem('tg_daily_streak',JSON.stringify({count:0,lastDate:data.lastDate}));}catch(e){}
+  var streak=0, today=getViennaDateKey(), yesterday=getYesterdayKey();
+  if(S.isLoggedIn) {
+    try {
+      var rows=await sbFetch('players?name=ilike.'+encodeURIComponent(S.loggedInName)+'&select=streak_count,streak_last_date');
+      if(rows&&rows.length) {
+        var d=rows[0], count=d.streak_count||0, last=d.streak_last_date||'';
+        if(last===today||last===yesterday) streak=count;
+        else if(last) { streak=0; sbFetch('players?name=ilike.'+encodeURIComponent(S.loggedInName),'PATCH',{streak_count:0}).catch(function(){}); }
+      }
+    } catch(e) {}
+  } else {
+    var data=getStreakDataLocal();
+    streak=data.count||0;
+    if(data.lastDate&&data.lastDate!==today&&data.lastDate!==yesterday){ streak=0; setStreakDataLocal(0,data.lastDate); }
   }
   if(streak<1){el.style.display='none';return;}
   el.style.display='block';
@@ -206,15 +248,17 @@ function refreshAuthUI(){
   S.isLoggedIn=!!(session.name&&session.pwHash);
   S.loggedInName=session.name||''; S.loggedInPwHash=session.pwHash||'';
   var btn=$('auth-btn');
+  var profileBtn=$('profile-btn');
   if(S.isLoggedIn){
     btn.textContent='Abmelden ('+S.loggedInName+')'; btn.className='logged-in';
+    if(profileBtn) profileBtn.style.display='block';
     $('vs-host-name').value=S.loggedInName; $('vs-join-name').value=S.loggedInName; $('qr-join-name-input').value=S.loggedInName;
-  } else { btn.textContent='↪ Anmelden'; btn.className='logged-out'; }
+  } else { btn.textContent='↪ Anmelden'; btn.className='logged-out'; if(profileBtn) profileBtn.style.display='none'; }
 }
 function handleAuthBtn(){if(S.isLoggedIn)showLogoutConfirm();else openLoginModal();}
 function showLogoutConfirm(){$('logout-confirm-overlay').classList.add('show');}
 function closeLogoutConfirm(){$('logout-confirm-overlay').classList.remove('show');}
-function confirmLogout(){clearSession();refreshAuthUI();closeLogoutConfirm();}
+function confirmLogout(){clearSession();refreshAuthUI();closeLogoutConfirm();openLoginModal();}
 
 function getOrCreateDeviceId(){
   var id=''; try{id=localStorage.getItem('tg_device_id')||'';}catch(e){}
@@ -294,11 +338,15 @@ function setMenuCardBackdrops(){
 function openModal(id){
   var bg=$(id); bg.classList.add('open');
   requestAnimationFrame(function(){bg.classList.add('visible');var m=bg.querySelector('.modal');if(m)m.classList.add('in');});
+  // Sanftes Modal-Öffnen-Geräusch
+  tone(330,'sine',.04,.04); tone(440,'sine',.06,.03,0,.03);
 }
 function closeModal(id){
   var bg=$(id); bg.classList.remove('visible');
   var m=bg.querySelector('.modal'); if(m)m.classList.remove('in');
   setTimeout(function(){bg.classList.remove('open');},280);
+  // Leises Modal-Schließen-Geräusch
+  tone(330,'sine',.04,.03);
 }
 
 function shuffle(a){
@@ -750,7 +798,11 @@ function _clearScoreFlames(overlay){_scoreFlameEls.forEach(function(el){if(el.pa
 function loadRound(){
   S.current=S.locations[S.round];
   $('round-num').textContent=S.round+1; $('score-display').textContent=fmtN(S.score);
-  hideSkipPanoBtn(); if(S.isVs)setTimeout(showSkipPanoBtn,1200);
+  hideSkipPanoBtn();
+  // difficulty badge sofort auf 'Unbestimmt' setzen, dann nachladen
+  var diffBadgeEl=document.getElementById('top-bar-diff');
+  if(diffBadgeEl){diffBadgeEl.textContent='Schwierigkeit: Unbestimmt';diffBadgeEl.style.display='';}
+  if(S.current&&typeof loadDifficultyBadge==='function') loadDifficultyBadge(S.current.id);
   var f=$('round-flash'); f.classList.remove('ember-flash');
   if(S.mode==='survival')f.classList.add('ember-flash');
   f.classList.add('on'); setTimeout(function(){f.classList.remove('on');},180);
@@ -815,6 +867,15 @@ function submitGuess(){
       if(S.mode==='survival'&&S.survivalEliminated)setTimeout(function(){sfx.eliminated();},300);
     });
   },350);
+  if(S.mode==='daily'){
+    markDailyPlayedLocally(S.dailyKey);
+    updateDailyPlayAvailability();
+    if(S.isLoggedIn&&!S.hasSavedThisRun){
+      S.pendingSaveTarget='daily';
+      autoSaveLoggedInUser();
+    }
+  }
+  afterGuessExtras(loc.id);
 }
 
 function initResultMap(loc,guess){
@@ -831,6 +892,12 @@ function initResultMap(loc,guess){
 function nextRound(){
   sfx.next(); clearNextVoteTimers(); hideVsWaitOverlay(); stopSpectatePoll();
   $('vs-bottom-wait').classList.remove('show');
+  // Inline-Difficulty-Rating für nächste Runde zurücksetzen
+  var inlineRating=document.getElementById('inline-diff-rating');
+  if(inlineRating){inlineRating.style.display='none';inlineRating.innerHTML='<div class="inline-diff-label">Wie schwer war der Spot?</div><div class="inline-diff-stars"><button class="diff-star" data-r="1" onclick="submitDifficultyRating(1)">&#9733;</button><button class="diff-star" data-r="2" onclick="submitDifficultyRating(2)">&#9733;</button><button class="diff-star" data-r="3" onclick="submitDifficultyRating(3)">&#9733;</button><button class="diff-star" data-r="4" onclick="submitDifficultyRating(4)">&#9733;</button><button class="diff-star" data-r="5" onclick="submitDifficultyRating(5)">&#9733;</button></div>';}
+  // Difficulty-Badge bleibt sichtbar; loadRound() setzt ihn auf 'Unbestimmt' und lädt neu
+  var diffBadge=document.getElementById('top-bar-diff');
+  if(diffBadge){diffBadge.textContent='Schwierigkeit: Unbestimmt';diffBadge.style.display='';}
   if(S.mode==='survival'&&S.survivalEliminated){showSurvivalFail();return;}
   S.round++;
   if(S.round>=S.roundsTotal)showFinal();
@@ -885,6 +952,7 @@ function showFinal(){
     setTimeout(function(){autoSaveLoggedInUser();},800);
   }
   updateSaveBtnVisibility();
+  setTimeout(afterFinalExtras,500);
 }
 
 // ── Share ──
@@ -982,19 +1050,20 @@ async function loadLeaderboardData(){
     var medals=['🥇','🥈','🥉'];
     players.forEach(function(r,i){
       var nameKey=r.name.toLowerCase(),allScores=playerAll[nameKey]||[];
-      var wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;border-radius:8px;overflow:hidden';
       var rankLabel=(S.lbSort==='pts'&&i<3)?'<span class="lb-rank gold">'+medals[i]+'</span>':'<span class="lb-rank">'+(i+1)+'</span>';
       var d=new Date(r.created_at),date=d.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit',year:'numeric'}),timeStr=d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'});
       var multiHint=allScores.length>1?' <span style="font-size:.55rem;color:var(--mist);">('+allScores.length+')</span>':'';
-      var rowEl=document.createElement('div');rowEl.className='lb-row';rowEl.style.borderRadius='0';
-      rowEl.innerHTML=rankLabel+'<span class="lb-name">'+escHtml(r.name)+multiHint+'</span><span class="lb-score">'+fmtN(r.score)+'</span><span class="lb-date" data-time="'+timeStr+'">'+date+'</span>';
+      var rowEl=document.createElement('div');rowEl.className='lb-row';
+      var profBtn='<button class="lb-profile-btn" onclick="event.stopPropagation();openProfile(\''+escHtml(r.name)+'\')">👤</button>';
+      rowEl.innerHTML=rankLabel+'<span class="lb-name">'+escHtml(r.name)+multiHint+'</span><span class="lb-score">'+fmtN(r.score)+'</span><span class="lb-date" data-time="'+timeStr+'">'+date+'</span>'+profBtn;
       if(lbAdminMode){
         var delBtn=document.createElement('button');delBtn.className='lb-del';delBtn.textContent='✕';delBtn.setAttribute('data-id',r.id);
-        delBtn.onclick=function(e){e.stopPropagation();deleteLbEntry(this.getAttribute('data-id'),this.closest('[style*="flex-direction"]')||this.parentElement.parentElement);};
+        delBtn.onclick=function(e){e.stopPropagation();deleteLbEntry(this.getAttribute('data-id'),this.parentElement);};
         rowEl.appendChild(delBtn);
       }
       var subList=document.createElement('div');subList.className='lb-player-scores';
       if(lbExpandedNames[nameKey])subList.classList.add('open');
+      // zeile klicken expandiert sub-scores wenn mehrere vorhanden, sonst nichts
       if(allScores.length>1){
         var curSubSort=lbSubSort[nameKey]||(S.lbSort==='date'?'date':'pts');
         var sortRow=document.createElement('div');sortRow.className='lb-sub-sort-row';
@@ -1008,12 +1077,14 @@ async function loadLeaderboardData(){
           };
         });
         subList.appendChild(sortRow);renderSubScores(subList,allScores,curSubSort);
-        rowEl.querySelector('.lb-name').onclick=function(e){
-          e.stopPropagation();var isOpen=subList.classList.contains('open');
+        rowEl.onclick=function(e){
+          if(e.target.classList.contains('lb-profile-btn')||e.target.classList.contains('lb-del'))return;
+          var isOpen=subList.classList.contains('open');
           subList.classList.toggle('open',!isOpen);lbExpandedNames[nameKey]=!isOpen;tone(isOpen?440:660,'sine',.06,.07);
         };
       }
-      wrap.appendChild(rowEl);wrap.appendChild(subList);$('lb-list').appendChild(wrap);
+      $('lb-list').appendChild(rowEl);
+      $('lb-list').appendChild(subList);
       setTimeout(function(){rowEl.classList.add('in');},i*45);
     });
   }catch(e){$('lb-list').innerHTML='<div style="font-size:.7rem;color:#e8826a;text-align:center;padding:1rem">Fehler beim Laden.</div>';console.error('Leaderboard error:',e);}
@@ -1028,7 +1099,7 @@ function renderSubScores(container,scores,sortMode){
     var sd=new Date(sc.created_at);
     var sdate=sd.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit',year:'numeric'}),stime=sd.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'});
     var sub=document.createElement('div');sub.className='lb-sub-score';
-    sub.innerHTML='<span>'+sdate+' '+stime+'</span><span>'+fmtN(sc.score)+'</span>';
+    sub.innerHTML='<span>'+sdate+' '+stime+'</span><span>'+fmtN(sc.score)+'</span><button class="lb-profile-btn" onclick="event.stopPropagation();openProfile(\''+escHtml(sc.name||'')+'\')">👤</button>';
     if(lbAdminMode){
       var delSubBtn=document.createElement('button');delSubBtn.className='lb-del lb-del-sub';delSubBtn.textContent='\u2715';delSubBtn.setAttribute('data-id',sc.id);
       delSubBtn.onclick=function(e){e.stopPropagation();deleteLbEntry(this.getAttribute('data-id'),this.closest('.lb-sub-score'),true);};
@@ -1176,11 +1247,37 @@ async function loadDailyChampions(){
   try{
     var rows=await sbFetch('daily_scores?date_key=eq.'+getYesterdayKey()+'&select=name,score&order=score.desc&limit=3');
     if(!rows||rows.length<1){section.style.display='none';return;}
+    // Sort by score descending to ensure correct rank assignment
+    rows=rows.slice().sort(function(a,b){return b.score-a.score;});
     section.style.display='block';list.innerHTML='';
-    var medals=['🥇','🥈','🥉'],podiumClass=['champion-gold','champion-silver','champion-bronze'];
-    rows.forEach(function(r,i){
-      var el=document.createElement('div');el.className='champion-entry '+podiumClass[i];
-      el.innerHTML='<span class="champion-medal">'+medals[i]+'</span><span class="champion-name">'+escHtml(r.name)+'</span><span class="champion-score">'+fmtN(r.score)+' Pkt.</span>';
+    // Podium: rows[0]=1.Platz(Gold), rows[1]=2.Platz(Silber), rows[2]=3.Platz(Bronze)
+    // Anzeige-Reihenfolge: Silber links, Gold mitte, Bronze rechts
+    var podiumOrder=rows.length>=3?[rows[1],rows[0],rows[2]]:rows.length===2?[rows[1],rows[0]]:[rows[0]];
+    var medals=['🥇','🥈','🥉'];
+    // Gold=index 0, Silber=index 1, Bronze=index 2
+    var podiumColors=['#FFD700','#C0C0C0','#CD7F32'];
+    var podiumGlow=['rgba(255,215,0,.55)','rgba(192,192,192,.45)','rgba(205,127,50,.45)'];
+    var podiumBorder=['rgba(255,215,0,.7)','rgba(192,192,192,.6)','rgba(205,127,50,.6)'];
+    var heights=['5.5rem','7.5rem','4.5rem']; // silber, gold, bronze
+    list.style.cssText='display:flex;align-items:flex-end;justify-content:center;gap:.75rem;padding:.75rem 0 0';
+    podiumOrder.forEach(function(r,pi){
+      var origIdx=rows.indexOf(r); // 0=gold,1=silber,2=bronze
+      var color=podiumColors[origIdx];
+      var glow=podiumGlow[origIdx];
+      var border=podiumBorder[origIdx];
+      var height=heights[pi]; // pi=0=links(silber),pi=1=mitte(gold),pi=2=rechts(bronze)
+      var placeLabel=['2.','1.','3.'][pi];
+      var el=document.createElement('div');
+      el.className='podium-slot podium-slot-'+(origIdx===0?'gold':origIdx===1?'silver':'bronze');
+      el.style.cssText='display:flex;flex-direction:column;align-items:center;gap:.25rem;flex:1;max-width:7rem;animation:podiumRise .6s '+(pi===1?.05:pi===0?.2:.35)+'s cubic-bezier(.16,1,.3,1) both';
+      el.innerHTML=
+        '<div class="podium-medal" style="font-size:'+(pi===1?'1.8rem':'1.3rem')+';filter:drop-shadow(0 0 10px '+glow+') drop-shadow(0 0 4px '+glow+');animation:medalBounce 2.5s '+(pi===1?.3:pi===0?.5:.7)+'s ease-in-out infinite alternate">'+medals[origIdx]+'</div>'
+        +'<div style="font-size:'+(pi===1?'.82rem':'.72rem')+';font-weight:700;color:'+color+';text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;text-shadow:0 0 18px '+glow+',0 0 6px '+glow+'">'+escHtml(r.name)+'</div>'
+        +'<div style="font-size:.6rem;color:var(--mist);letter-spacing:.04em">'+fmtN(r.score)+' Pkt.</div>'
+        +'<div class="podium-block" style="width:100%;background:linear-gradient(180deg,'+color+'44 0%,'+color+'18 50%,'+color+'08 100%);border:1.5px solid '+border+';border-bottom:none;border-radius:8px 8px 0 0;height:'+height+';display:flex;align-items:flex-start;justify-content:center;padding-top:.5rem;box-shadow:0 -6px 24px '+glow+',inset 0 1px 0 rgba(255,255,255,.15);position:relative;overflow:hidden;">'
+        +'<span style="font-size:.65rem;color:'+color+';font-weight:700;letter-spacing:.06em;text-shadow:0 0 10px '+glow+'">'+placeLabel+'</span>'
+        +'<div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,'+color+',transparent);animation:podiumShimmer 2s '+(origIdx*.4)+'s linear infinite"></div>'
+        +'</div>';
       list.appendChild(el);
     });
   }catch(e){section.style.display='none';}
@@ -1265,12 +1362,43 @@ function closeQrScanner(){
 
 // ── VS Mode ──
 function openVsModal(){
-  var session=loadSession();if(session.name){$('vs-host-name').value=session.name;$('vs-join-name').value=session.name;}openModal('vs-modal');
+  var session=loadSession();
+  if(session.name){
+    var h=$('vs-host-name'); if(h)h.value=session.name;
+    var j=$('vs-join-name'); if(j)j.value=session.name;
+  }
+  showVsChoice();
+  openModal('vs-modal');
+}
+
+function showVsChoice(){
+  $('vs-choice-btns').style.display='flex';
+  $('vs-create-panel').style.display='none';
+  $('vs-join-panel').style.display='none';
+  var backBtn=$('vs-modal-back-btn');if(backBtn)backBtn.style.display='none';
+}
+
+function showVsPanel(which){
+  $('vs-choice-btns').style.display='none';
+  var backBtn=$('vs-modal-back-btn');if(backBtn)backBtn.style.display='block';
+  if(which==='create'){
+    $('vs-create-panel').style.display='flex';
+    $('vs-join-panel').style.display='none';
+    // sofort erstellen ohne weiteren klick
+    createRoom();
+  } else {
+    $('vs-create-panel').style.display='none';
+    $('vs-join-panel').style.display='flex';
+    setTimeout(function(){var c=$('vs-join-code');if(c)c.focus();},100);
+  }
 }
 var roomCreationInProgress=false;
 async function createRoom(){
-  if(roomCreationInProgress)return;var name=$('vs-host-name').value.trim();if(!name){$('vs-host-name').focus();return;}
-  roomCreationInProgress=true;var code=randomCode(),locs=shuffle(LOCATIONS.slice()).slice(0,5).map(function(l){return l.id;});
+  if(roomCreationInProgress)return;
+  var session=loadSession();
+  var name=session.name||'Spieler';
+  roomCreationInProgress=true;
+  var code=randomCode(),locs=shuffle(LOCATIONS.slice()).slice(0,5).map(function(l){return l.id;});
   try{
     await sbFetch('rooms','POST',{id:code,host_name:name,location_ids:locs,host_scores:[],guest_scores:[],host_done:false,guest_done:false,host_guess_latlng:null,guest_guess_latlng:null,host_pano_angle:0,guest_pano_angle:0,host_map_cursor:null,guest_map_cursor:null,next_votes:0,play_again_votes:0,host_online:true,guest_online:false,host_next_voted:false,guest_next_voted:false,host_play_again_voted:false,guest_play_again_voted:false,last_activity:new Date().toISOString()});
     S.vsRoom=code;S.vsIsHost=true;S.vsMyName=name;S.vsMyScores=[];S.vsTheirScores=[];closeModal('vs-modal');
@@ -1291,8 +1419,10 @@ function pollForGuest(){
   },2500);
 }
 async function joinRoom(){
-  var name=$('vs-join-name').value.trim(),code=$('vs-join-code').value.trim().toUpperCase();
-  if(!name||!code){$('vs-join-error').textContent='Name und Code eingeben.';return;}$('vs-join-error').textContent='';
+  var session=loadSession();
+  var name=session.name||'Spieler';
+  var code=$('vs-join-code').value.trim().toUpperCase();
+  if(!code){$('vs-join-error').textContent='Bitte Code eingeben.';return;}$('vs-join-error').textContent='';
   try{
     var rows=await sbFetch('rooms?id=eq.'+code+'&select=id,host_name,location_ids,guest_name');
     if(!rows||!rows.length){$('vs-join-error').textContent='Raum nicht gefunden.';return;}
@@ -1373,8 +1503,7 @@ function startVsPoll(){
       if(nv!==S.nextVotes){S.nextVotes=nv;updateNextVoteUI();}
       if(pav!==S.playAgainVotes){S.playAgainVotes=pav;updatePlayAgainVoteUI();}
       var myNV=S.vsIsHost?r.host_next_voted:r.guest_next_voted,theirNV=S.vsIsHost?r.guest_next_voted:r.host_next_voted;
-      if($('game-screen').classList.contains('active')&&!_skipPanoVoted&&theirNV){var btn=$('vs-skip-pano-btn');if(btn)btn.textContent='Anderes Panorama? (1/2)';}
-      if(myNV&&theirNV&&$('result-screen').classList.contains('active')&&S.vsTheirDone)nextRound();
+            if(myNV&&theirNV&&$('result-screen').classList.contains('active')&&S.vsTheirDone)nextRound();
       var myPAV=S.vsIsHost?r.host_play_again_voted:r.guest_play_again_voted,theirPAV=S.vsIsHost?r.guest_play_again_voted:r.host_play_again_voted;
       if(myPAV&&theirPAV&&$('final-screen').classList.contains('active'))doPlayAgain();
     }catch(e){}
@@ -1527,19 +1656,9 @@ function showVsFinalResult(){
 
 // ── VS skip pano ──
 var _skipPanoVoted=false;
-function showSkipPanoBtn(){var btn=$('vs-skip-pano-btn');if(!btn||!S.isVs)return;btn.style.display='block';btn.disabled=false;btn.textContent='Anderes Panorama? (0/2)';_skipPanoVoted=false;}
-function hideSkipPanoBtn(){var btn=$('vs-skip-pano-btn');if(btn)btn.style.display='none';_skipPanoVoted=false;}
-async function voteSkipPano(){
-  if(!S.isVs||_skipPanoVoted)return;_skipPanoVoted=true;var btn=$('vs-skip-pano-btn');if(btn){btn.disabled=true;btn.textContent='Abgestimmt… (1/2)';}
-  try{
-    var myVK=S.vsIsHost?'host_next_voted':'guest_next_voted',theirVK=S.vsIsHost?'guest_next_voted':'host_next_voted';
-    var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=next_votes,host_next_voted,guest_next_voted');
-    var cur=(rows&&rows[0]&&rows[0].next_votes)||0,theirVoted=rows&&rows[0]&&rows[0][theirVK];
-    var patch={next_votes:cur+1};patch[myVK]=true;await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',patch);
-    if(cur+1>=2||theirVoted){hideSkipPanoBtn();await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{next_votes:0,host_next_voted:false,guest_next_voted:false});skipToNextLocation();}
-    else{if(btn)btn.textContent='Abgestimmt… (1/2)';}
-  }catch(e){_skipPanoVoted=false;var b=$('vs-skip-pano-btn');if(b){b.disabled=false;b.textContent='Anderes Panorama? (1/2)';}}
-}
+function showSkipPanoBtn(){}
+function hideSkipPanoBtn(){}
+async function voteSkipPano(){}
 
 async function cleanupStaleRooms(){try{var cutoff=new Date(Date.now()-2*60*60*1000).toISOString();await sbFetch('rooms?last_activity=lt.'+cutoff,'DELETE');}catch(e){}}
 
@@ -1672,4 +1791,404 @@ async function deleteChangelogEntry(id){
   if(!confirm('Eintrag wirklich löschen?'))return;
   try{await sbFetch('changelog_entries?id=eq.'+id,'DELETE');changelogCache=null;var entries=await loadChangelogEntries();renderChangelogList(entries);}
   catch(e){alert('Fehler beim Löschen.');}
+}
+
+// ── ACHIEVEMENTS ──
+var ACHIEVEMENTS=[
+  {key:'first_game',icon:'🎮',title:'Erster Schritt',desc:'Erstes Spiel gespielt'},
+  {key:'first_perfect',icon:'💎',title:'Perfektion',desc:'5000 Punkte in einer Runde'},
+  {key:'streak_3',icon:'🔥',title:'Am Laufen',desc:'3 Tage in Folge gespielt'},
+  {key:'streak_7',icon:'🔥🔥',title:'Auf Kurs',desc:'7 Tage in Folge gespielt'},
+  {key:'streak_30',icon:'👑',title:'Ternberg-Legende',desc:'30 Tage in Folge gespielt'},
+  {key:'score_10k',icon:'⭐',title:'Über 10.000',desc:'10.000+ Punkte in einem Spiel'},
+  {key:'score_20k',icon:'🌟',title:'Über 20.000',desc:'20.000+ Punkte in einem Spiel'},
+  {key:'score_25k',icon:'🏆',title:'Maximale Leistung',desc:'25.000 Punkte — perfektes Spiel'},
+  {key:'survival_win',icon:'🌋',title:'Überlebt!',desc:'Alle 12 Hitzewelle-Runden bestanden'},
+  {key:'daily_10',icon:'📅',title:'Stammgast',desc:'10 Daily Challenges gespielt'}
+];
+
+async function checkAndUnlockAchievements(opts){
+  if(!S.isLoggedIn)return;
+  var session=loadSession(); if(!session.name)return;
+  try{
+    var existing=await sbFetch('achievements?player_name=ilike.'+encodeURIComponent(session.name)+'&select=achievement_key');
+    var have=new Set((existing||[]).map(function(r){return r.achievement_key;}));
+    var toUnlock=[];
+    if(opts.firstGame&&!have.has('first_game'))toUnlock.push('first_game');
+    if(opts.perfectRound&&!have.has('first_perfect'))toUnlock.push('first_perfect');
+    if(opts.streak>=3&&!have.has('streak_3'))toUnlock.push('streak_3');
+    if(opts.streak>=7&&!have.has('streak_7'))toUnlock.push('streak_7');
+    if(opts.streak>=30&&!have.has('streak_30'))toUnlock.push('streak_30');
+    if(opts.totalScore>=10000&&!have.has('score_10k'))toUnlock.push('score_10k');
+    if(opts.totalScore>=20000&&!have.has('score_20k'))toUnlock.push('score_20k');
+    if(opts.totalScore>=25000&&!have.has('score_25k'))toUnlock.push('score_25k');
+    if(opts.survivalWin&&!have.has('survival_win'))toUnlock.push('survival_win');
+    if(opts.dailyCount>=10&&!have.has('daily_10'))toUnlock.push('daily_10');
+    for(var i=0;i<toUnlock.length;i++){
+      var key=toUnlock[i];
+      try{await sbFetch('achievements','POST',{player_name:session.name,achievement_key:key});}catch(e){}
+      var def=ACHIEVEMENTS.find(function(a){return a.key===key;});
+      if(def)showAchievementToast(def);
+    }
+  }catch(e){}
+}
+
+// achievement toast queue — so mehrere Toasts nicht übereinander sind
+var _achToastQueue=[], _achToastCombo=0, _achToastTimer=null;
+
+function showAchievementToast(def){
+  _achToastQueue.push(def);
+  if(!_achToastTimer) _drainAchQueue();
+}
+
+function _drainAchQueue(){
+  if(!_achToastQueue.length){ _achToastTimer=null; return; }
+  var def=_achToastQueue.shift();
+  _achToastCombo++;
+  _playAchievementSound(_achToastCombo);
+
+  var toast=document.createElement('div');
+  toast.className='achievement-toast';
+  var comboTag=_achToastCombo>1
+    ? '<div class="ach-toast-combo">'+_achToastCombo+'x Combo! 🔥</div>'
+    : '';
+  toast.innerHTML=
+    comboTag+
+    '<span class="ach-toast-icon">'+def.icon+'</span>'+
+    '<div><div class="ach-toast-title">'+def.title+'</div>'+
+    '<div class="ach-toast-desc">'+def.desc+'</div></div>';
+  document.body.appendChild(toast);
+  requestAnimationFrame(function(){requestAnimationFrame(function(){toast.classList.add('show');});});
+  _achToastTimer=setTimeout(function(){
+    toast.classList.remove('show');
+    setTimeout(function(){toast.remove();},500);
+    _drainAchQueue();
+  },3000);
+}
+
+function _playAchievementSound(combo){
+  if(VOL===0) return;
+  // Tonhöhe steigt mit jeder Combo
+  var base=440, step=80;
+  var freq=Math.min(base+step*(combo-1), 1800);
+  tone(freq,'sine',.12,.1);
+  tone(freq*1.25,'sine',.09,.07,0,.07);
+  tone(freq*1.5,'sine',.07,.05,0,.13);
+  if(combo>=3){
+    setTimeout(function(){ chord([freq,freq*1.25,freq*1.5,freq*2],'sine',.25,.06); },180);
+  }
+}
+
+// Combo-Reset nach Pause
+var _achComboResetTimer=null;
+function _resetAchComboSoon(){
+  clearTimeout(_achComboResetTimer);
+  _achComboResetTimer=setTimeout(function(){ _achToastCombo=0; },6000);
+}
+
+// K-Taste: Test-Achievement (zählt nicht, wird nicht gespeichert)
+document.addEventListener('keydown',function(e){
+  if(e.key==='k'||e.key==='K'){
+    showAchievementToast({icon:'🧪',title:'Test-Achievement',desc:'Nur zum Ausprobieren — zählt nicht!'});
+  }
+});
+
+// ── SCORE CHART ──
+function drawScoreChart(){
+  var canvas=$('score-chart'); if(!canvas||!S.roundScores.length)return;
+  canvas.style.display='block';
+  var ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  var scores=S.roundScores.map(function(r){return r.pts;});
+  var max=Math.max.apply(null,scores.concat([1]));
+  var barW=Math.floor((W-40)/scores.length*0.55),gap=Math.floor((W-40)/scores.length);
+  var baseY=H-24;
+  // grid line at 5000
+  var maxLineY=baseY-Math.round((5000/max)*(baseY-8));
+  if(max<5000){maxLineY=8;}
+  ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(20,maxLineY);ctx.lineTo(W-20,maxLineY);ctx.stroke();
+  scores.forEach(function(s,i){
+    var x=20+i*gap+gap/2-barW/2;
+    var barH=Math.max(4,Math.round((s/max)*(baseY-12)));
+    var y=baseY-barH;
+    var grad=ctx.createLinearGradient(x,y,x,baseY);
+    if(s>=4800){grad.addColorStop(0,'#f0e080');grad.addColorStop(1,'#c9a84c');}
+    else if(s>=3000){grad.addColorStop(0,'#e8c86a');grad.addColorStop(1,'#a07830');}
+    else if(s>=1000){grad.addColorStop(0,'#8fa89a');grad.addColorStop(1,'#4a6655');}
+    else{grad.addColorStop(0,'#c05040');grad.addColorStop(1,'#7a2010');}
+    ctx.fillStyle=grad;
+    ctx.beginPath();
+    ctx.roundRect(x,y,barW,barH,3);
+    ctx.fill();
+    // label
+    ctx.fillStyle='rgba(245,240,232,0.55)';
+    ctx.font='8px DM Mono,monospace';
+    ctx.textAlign='center';
+    ctx.fillText('R'+(i+1),x+barW/2,baseY+10);
+    // score on top
+    if(s>0){
+      ctx.fillStyle=s>=4800?'#f0e080':s>=3000?'#e8c86a':'rgba(245,240,232,0.6)';
+      ctx.font='bold 8px DM Mono,monospace';
+      ctx.fillText(s>=1000?Math.round(s/100)/10+'k':s,x+barW/2,y-3);
+    }
+  });
+}
+
+// ── DIFFICULTY RATING ──
+var _diffPendingLocId=null, _diffRated=new Set();
+
+// In-Game Schwierigkeits-Badge (wird nach einem Guess sichtbar)
+var _diffCurrentLocId=null;
+async function loadDifficultyBadge(locId){
+  _diffCurrentLocId=locId;
+  var el=document.getElementById('top-bar-diff');
+  if(!el)return;
+  el.textContent='Schwierigkeit: Unbestimmt';
+  el.style.display='';
+  try{
+    var rows=await sbFetch('location_ratings?location_id=eq.'+encodeURIComponent(locId)+'&select=rating');
+    if(!rows||!rows.length){el.textContent='Schwierigkeit: Unbestimmt';el.style.display='';return;}
+    var avg=rows.reduce(function(a,r){return a+r.rating;},0)/rows.length;
+    var labels=['','Sehr einfach','Einfach','Normal','Schwer','Sehr schwer'];
+    el.style.display='';
+    el.textContent='Schwierigkeit: '+(labels[Math.round(avg)]||'Normal');
+  }catch(e){el.textContent='Schwierigkeit: Unbestimmt';el.style.display='';}
+}
+
+async function loadAndShowDifficultyDisplay(locId){
+  var el=$('difficulty-display'); if(!el)return;
+  try{
+    var rows=await sbFetch('location_ratings?location_id=eq.'+encodeURIComponent(locId)+'&select=rating');
+    if(!rows||!rows.length){el.style.display='none';return;}
+    var avg=rows.reduce(function(a,r){return a+r.rating;},0)/rows.length;
+    var labels=['','Sehr einfach','Einfach','Normal','Schwer','Sehr schwer'];
+    var label=labels[Math.round(avg)]||'Normal';
+    el.style.display='block';
+    el.innerHTML='<div class="diff-display">Schwierigkeit: <span class="diff-label">'+label+'</span> <span class="diff-count">('+rows.length+' Bewertung'+(rows.length===1?'':'en')+')</span></div>';
+  }catch(e){el.style.display='none';}
+}
+
+function showDifficultyOverlay(locId){
+  if(_diffRated.has(locId))return;
+  _diffPendingLocId=locId;
+  var overlay=$('difficulty-overlay'); if(!overlay)return;
+  var stars=overlay.querySelectorAll('.diff-star');
+  stars.forEach(function(s){s.classList.remove('active');});
+  overlay.classList.add('show');
+  stars.forEach(function(star){
+    star.onmouseover=function(){
+      var r=parseInt(star.getAttribute('data-r'));
+      stars.forEach(function(s){s.classList.toggle('hover',parseInt(s.getAttribute('data-r'))<=r);});
+    };
+    star.onmouseout=function(){stars.forEach(function(s){s.classList.remove('hover');});};
+  });
+}
+
+function closeDifficultyOverlay(){
+  var overlay=$('difficulty-overlay'); if(overlay)overlay.classList.remove('show');
+  _diffPendingLocId=null;
+}
+
+async function submitDifficultyRating(rating){
+  var locId=_diffPendingLocId; if(!locId)return;
+  _diffRated.add(locId);
+  // Overlay schließen (falls noch offen)
+  closeDifficultyOverlay();
+  // Inline-Rating ausblenden und bestätigen
+  var inlineEl=document.getElementById('inline-diff-rating');
+  if(inlineEl){
+    inlineEl.innerHTML='<div class="inline-diff-confirmed">Danke! ★</div>';
+    setTimeout(function(){inlineEl.style.display='none';},1400);
+  }
+  tone(660,'sine',.08,.07); tone(880,'sine',.06,.05,0,.07);
+  try{
+    var name=S.isLoggedIn?S.loggedInName:null;
+    if(name){
+      await sbFetch('location_ratings?player_name=ilike.'+encodeURIComponent(name)+'&location_id=eq.'+encodeURIComponent(locId),'DELETE').catch(function(){});
+    }
+    await sbFetch('location_ratings','POST',{location_id:locId,rating:rating,player_name:name||null});
+  }catch(e){}
+}
+
+// guess in DB speichern (immer, alle modi)
+async function saveGuessToDb(locId){
+  if(!S.guessLatLng||!S.current)return;
+  var name=S.isLoggedIn?S.loggedInName:null;
+  sbFetch('daily_guesses','POST',{
+    date_key:S.dailyKey||getViennaDateKey(),
+    location_id:locId,
+    guess_lat:S.guessLatLng.lat,
+    guess_lng:S.guessLatLng.lng,
+    player_name:name||null
+  }).catch(function(){});
+}
+
+// zeigt wo alle anderen getippt haben als beschriftete kreise auf der ergebniskarte
+async function showOtherGuessesOnResultMap(locId){
+  if(!S.resultMap)return;
+  try{
+    var rows=await sbFetch(
+      'daily_guesses?location_id=eq.'+encodeURIComponent(locId)+'&select=guess_lat,guess_lng,player_name&limit=400'
+    );
+    if(!rows||!rows.length)return;
+    rows.forEach(function(row){
+      var label=row.player_name||'Anonym';
+      L.circleMarker([row.guess_lat,row.guess_lng],{
+        radius:5,
+        color:'rgba(143,168,154,0.7)',
+        fillColor:'rgba(143,168,154,0.35)',
+        fillOpacity:1,weight:1.5
+      }).addTo(S.resultMap)
+        .bindTooltip(label,{sticky:true,className:'hm-tip'});
+    });
+  }catch(e){}
+}
+
+async function openHeatmap(){
+  openModal('heatmap-modal');
+  setTimeout(async function(){
+    if(_heatmapMap){_heatmapMap.remove();_heatmapMap=null;}
+    _heatmapMap=L.map('heatmap-el',{center:[47.947,14.358],zoom:13,attributionControl:false,zoomControl:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(_heatmapMap);
+    setTimeout(function(){if(_heatmapMap)_heatmapMap.invalidateSize();},200);
+    try{
+      // Alle Guesses laden (kein Datumsfilter) - für immer gespeichert
+      var rows=await sbFetch('daily_guesses?select=guess_lat,guess_lng,date_key&limit=2000&order=id.desc');
+      if(!rows||!rows.length){
+        $('heatmap-hint').textContent='Noch keine Daten vorhanden.';
+        return;
+      }
+      $('heatmap-hint').textContent=rows.length+' Tipps gesamt (· = ein Tipp)';
+      var bounds=[];
+      // Farbskala nach Datum: neuere = goldfarben, ältere = blaugrün
+      var today=getViennaDateKey();
+      rows.forEach(function(r){
+        var isToday=r.date_key===today;
+        var color=isToday?'rgba(201,168,76,0.9)':'rgba(100,160,130,0.65)';
+        var fillColor=isToday?'rgba(201,168,76,0.4)':'rgba(100,160,130,0.25)';
+        L.circleMarker([r.guess_lat,r.guess_lng],{
+          radius:isToday?7:5,color:color,fillColor:fillColor,
+          fillOpacity:1,weight:1.5
+        }).addTo(_heatmapMap);
+        bounds.push([r.guess_lat,r.guess_lng]);
+      });
+      if(bounds.length)_heatmapMap.fitBounds(L.latLngBounds(bounds).pad(0.3));
+    }catch(e){$('heatmap-hint').textContent='Fehler beim Laden.';}
+  },300);
+}
+
+// ── PROFILE ──
+async function openProfile(playerName){
+  var name=playerName||(S.isLoggedIn?S.loggedInName:null);
+  if(!name)return;
+  show('profile-screen');
+  $('profile-name-display').textContent=name;
+  // Entwickler-Badge für Fabio
+  var headerEl=document.getElementById('profile-header-info');
+  var devBadgeId='dev-badge-fabio';
+  var oldBadge=document.getElementById(devBadgeId);
+  if(oldBadge)oldBadge.remove();
+  if(name.toLowerCase()==='fabio'){
+    var devBadge=document.createElement('div');
+    devBadge.id=devBadgeId;
+    devBadge.className='dev-badge';
+    devBadge.textContent='🛠 Entwickler';
+    var nameEl=document.getElementById('profile-name-display');
+    if(nameEl&&nameEl.parentNode)nameEl.parentNode.insertBefore(devBadge,nameEl.nextSibling);
+  }
+  $('profile-avatar').textContent=name.charAt(0).toUpperCase();
+  $('ps-games').textContent='...';
+  $('ps-best').textContent='...';
+  $('ps-avg').textContent='...';
+  $('ps-streak').textContent='...';
+  $('profile-achievements').innerHTML='<div style="font-size:.65rem;color:var(--mist)">Lade...</div>';
+  $('profile-recent-scores').innerHTML='';
+  try{
+    var scores=await sbFetch('scores?name=ilike.'+encodeURIComponent(name)+'&select=score,created_at&order=created_at.desc&limit=50');
+    var games=scores?scores.length:0;
+    var best=scores&&scores.length?Math.max.apply(null,scores.map(function(r){return r.score;})):0;
+    var avg=games?Math.round(scores.reduce(function(a,r){return a+r.score;},0)/games):0;
+    $('ps-games').textContent=games;
+    $('ps-best').textContent=fmtN(best);
+    $('ps-avg').textContent=fmtN(avg);
+    var playerRow=await sbFetch('players?name=ilike.'+encodeURIComponent(name)+'&select=streak_count,streak_last_date,created_at');
+    if(playerRow&&playerRow.length){
+      $('ps-streak').textContent=(playerRow[0].streak_count||0)+' Tage';
+      var since=playerRow[0].created_at?new Date(playerRow[0].created_at).toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'}):'';
+      $('profile-since').textContent=since?'Dabei seit '+since:'';
+    }
+    // achievements
+    var achRows=await sbFetch('achievements?player_name=ilike.'+encodeURIComponent(name)+'&select=achievement_key,unlocked_at');
+    var haveKeys=new Set((achRows||[]).map(function(r){return r.achievement_key;}));
+    var achHtml=ACHIEVEMENTS.map(function(a){
+      var unlocked=haveKeys.has(a.key);
+      return '<div class="ach-item'+(unlocked?'':' ach-locked')+'">'
+        +'<span class="ach-icon">'+a.icon+'</span>'
+        +'<div class="ach-info"><div class="ach-title">'+a.title+'</div><div class="ach-desc">'+a.desc+'</div></div>'
+        +(unlocked?'<span class="ach-check">✓</span>':'')+'</div>';
+    }).join('');
+    $('profile-achievements').innerHTML=achHtml||'<div style="font-size:.65rem;color:var(--mist)">Noch keine Erfolge.</div>';
+    // recent scores
+    var recentHtml=(scores||[]).slice(0,10).map(function(r){
+      var d=new Date(r.created_at);
+      return '<div class="profile-score-row"><span>'+d.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit',year:'numeric'})+'</span><span class="gold">'+fmtN(r.score)+' Pkt.</span></div>';
+    }).join('');
+    $('profile-recent-scores').innerHTML=recentHtml||'<div style="font-size:.65rem;color:var(--mist)">Noch keine Spiele.</div>';
+  }catch(e){
+    $('profile-achievements').innerHTML='<div style="font-size:.65rem;color:#e8826a">Fehler beim Laden.</div>';
+  }
+}
+
+// ── Extra hooks (no function patching to avoid stack overflow) ──
+function afterFinalExtras(){
+  drawScoreChart();
+  var hb=$('heatmap-btn');
+  if(hb)hb.style.display='none';
+  // streak für alle modi updaten
+  updateStreak(getViennaDateKey()).catch(function(){});
+  if(!S.isLoggedIn)return;
+  sbFetch('players?name=ilike.'+encodeURIComponent(S.loggedInName)+'&select=streak_count').then(function(r){
+    var streak=(r&&r.length)?(r[0].streak_count||0):0;
+    var dailyCount=0;
+    try{for(var k in localStorage){if(k.startsWith('tg_daily_done_'))dailyCount++;}}catch(e){}
+    checkAndUnlockAchievements({
+      firstGame:true,
+      perfectRound:S.roundScores.some(function(r){return r.pts>=4990;}),
+      streak:streak,
+      totalScore:S.score,
+      survivalWin:S.mode==='survival'&&!S.survivalEliminated&&S.round>=S.roundsTotal-1,
+      survivalRound:S.round||0,
+      dailyCount:dailyCount,
+      minDist:S.minDist,
+      nightOwl:(new Date().getHours()>=0&&new Date().getHours()<5),
+      vsWin:S.isVs&&S.vsWon,
+    });
+  }).catch(function(){});
+}
+function afterGuessExtras(locId){
+  saveGuessToDb(locId);
+  if(!locId)return;
+  setTimeout(function(){
+    showOtherGuessesOnResultMap(locId);
+    loadAndShowDifficultyDisplay(locId);
+    loadDifficultyBadge(locId);
+    var inlineRating=document.getElementById('inline-diff-rating');
+    if(inlineRating){
+      if(_diffRated.has(locId)){
+        inlineRating.style.display='none';
+      } else {
+        inlineRating.style.display='block';
+        _diffPendingLocId=locId;
+        var stars=inlineRating.querySelectorAll('.diff-star');
+        stars.forEach(function(star){
+          star.onmouseover=function(){
+            var r=parseInt(star.getAttribute('data-r'));
+            stars.forEach(function(s){s.classList.toggle('hover',parseInt(s.getAttribute('data-r'))<=r);});
+          };
+          star.onmouseout=function(){stars.forEach(function(s){s.classList.remove('hover');});};
+        });
+      }
+    }
+  },600);
 }
