@@ -453,7 +453,6 @@ body::before{
 
 @media(max-width:768px){
   .daily-layout{margin:0}
-  #daily-screen{padding:1rem;justify-content:flex-start}
 }
 
 /* ────────────────────────────────────────
@@ -819,17 +818,23 @@ body::before{
   .menu-card-title{font-size:1.05rem}
   .menu-card-sub{font-size:.6rem;max-width:none;line-height:1.5}
   .menu-card-cta{font-size:.65rem;padding:.5rem .75rem}
-  .daily-layout{width:100%;grid-template-columns:1fr;gap:.75rem;overflow-y:auto;max-height:calc(100dvh - 2rem);padding-bottom:1rem}
-  .daily-left,.daily-right{border-radius:14px;padding:.9rem}
-  .daily-left{min-height:unset;padding-bottom:1.2rem}
-  .daily-actions{position:static;margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.6rem}
-  .daily-actions .big-btn{flex:1;min-width:120px}
-  .daily-title{font-size:clamp(1.5rem,7vw,2.2rem)}
-  .daily-desc{max-width:none;font-size:.74rem;line-height:1.7}
-  #top-bar{top:.65rem;right:.65rem;gap:.4rem;flex-wrap:wrap;justify-content:flex-end;max-width:58vw}
-  #round-badge,#score-badge,#vs-badge,#vol-btn,#compass{font-size:.54rem;padding:.22rem .5rem}
+  /* Daily screen: vollständig scrollbar, Buttons immer sichtbar */
+  #daily-screen{padding:.75rem;justify-content:flex-start;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,1rem)}
+  .daily-layout{width:100%;grid-template-columns:1fr;gap:.65rem;overflow-y:visible;max-height:none;padding-bottom:.5rem}
+  .daily-left,.daily-right{border-radius:14px;padding:.85rem}
+  .daily-left{min-height:unset;gap:.7rem}
+  .daily-actions{position:static;margin-top:.25rem;display:flex;flex-wrap:wrap;gap:.5rem;width:100%}
+  .daily-actions .big-btn{flex:1;min-width:120px;padding:.8rem .6rem;font-size:.82rem}
+  .daily-title{font-size:clamp(1.4rem,6vw,2rem)}
+  .daily-desc{max-width:none;font-size:.72rem;line-height:1.65}
+  .daily-right{max-height:40dvh;overflow-y:auto}
+  /* Game top-bar: auf Mobile kompakter, Schwierigkeits-Badge ausblenden */
+  #top-bar{top:.65rem;left:50%;transform:translateX(-50%);right:auto;max-width:calc(100vw - 8rem);flex-wrap:nowrap}
+  #top-bar-diff{display:none!important}
+  #round-badge{font-size:.58rem;padding:.28rem .65rem;white-space:nowrap}
+  #score-badge{font-size:.58rem;padding:.28rem .65rem}
   #vs-badge{top:.65rem;left:.65rem;max-width:35vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #compass{top:.65rem;left:50%;transform:translateX(-50%)}
+  #compass{top:.65rem;right:.65rem}
   #vol-btn{left:.65rem;bottom:calc(165px + .9rem);z-index:12}
   #survival-badge{top:3rem;font-size:.58rem;padding:.22rem .6rem}
   #back-to-home-btn{font-size:.56rem;padding:.38rem .7rem;top:.55rem;left:.55rem}#map-panel{left:.65rem;right:.65rem;bottom:.65rem;width:auto;border-radius:12px;transform:none!important}
