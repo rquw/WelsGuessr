@@ -1,0 +1,6 @@
+.DS_Store
+metadata/
+log.json
+__pycache__/
+*.py
+_dev/

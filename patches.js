@@ -18,7 +18,7 @@
 
     // genauigkeit
     { key:'close_call', icon:'🎯', title:'Haarscharf!',        desc:'Unter 10 Meter entfernt geraten' },
-    { key:'bullseye',   icon:'💥', title:'Volltreffer!',       desc:'Unter 2 Meter — du stehst quasi dort' },
+    { key:'bullseye',   icon:'💥', title:'Volltreffer!',       desc:'Unter 2 Meter?? Du stehst quasi dort!!' },
 
     // hitzewelle
     { key:'survival_5', icon:'🌡️', title:'Halbzeit geschafft', desc:'5 Hitzewelle-Runden bestanden' },
@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     try {
       var scores = await sbFetch(
-        'scores?name=ilike.' + encodeURIComponent(name) +
+        'wels_scores?name=ilike.' + encodeURIComponent(name) +
         '&select=score,created_at&order=created_at.desc&limit=100'
       );
       var games = scores ? scores.length : 0;
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
       el = document.getElementById('ps-avg');   if (el) el.textContent = fmtN(avg);
 
       var dailyRows = await sbFetch(
-        'daily_scores?name=ilike.' + encodeURIComponent(name) + '&select=id&limit=999'
+        'wels_daily_scores?name=ilike.' + encodeURIComponent(name) + '&select=id&limit=999'
       ).catch(function() { return []; });
       el = document.getElementById('ps-dailies');
       if (el) el.textContent = dailyRows ? dailyRows.length : 0;
@@ -344,9 +344,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // combo und minDist bei spielstart zurücksetzen
   var _origStartSolo = window.startSolo;
-  if (_origStartSolo) window.startSolo = function() { _achToastCombo = 0; S.minDist = null; _origStartSolo.apply(this, arguments); };
+  if (_origStartSolo) window.startSolo = function() { S.minDist = null; _origStartSolo.apply(this, arguments); };
   var _origStartSurvival = window.startSurvival;
-  if (_origStartSurvival) window.startSurvival = function() { _achToastCombo = 0; S.minDist = null; _origStartSurvival.apply(this, arguments); };
+  if (_origStartSurvival) window.startSurvival = function() { S.minDist = null; _origStartSurvival.apply(this, arguments); };
 
   // vs-panel-grid: display flex statt grid wenn nur ein panel sichtbar
   var _origShowVsPanel = window.showVsPanel;
@@ -415,14 +415,14 @@ function _patchedAfterFinalExtras() {
     .then(function(r) {
       var streak = (r && r.length) ? (r[0].streak_count || 0) : 0;
       var dailyCount = 0;
-      try { for (var k in localStorage) { if (k.startsWith('tg_daily_done_')) dailyCount++; } } catch(e) {}
+      try { for (var k in localStorage) { if (k.startsWith('wg_daily_done_')) dailyCount++; } } catch(e) {}
       var hour = new Date().getHours();
       checkAndUnlockAchievements({
         firstGame:     true,
         perfectRound:  S.roundScores && S.roundScores.some(function(r) { return r.pts >= 4990; }),
         streak:        streak,
         totalScore:    S.score,
-        survivalWin:   S.mode === 'survival' && !S.survivalEliminated,
+        survivalWin:   S.mode === 'survival' && !S.survivalEliminated && S.round >= S.roundsTotal - 1,
         survivalRound: S.round || 0,
         dailyCount:    dailyCount,
         minDist:       S.minDist,
@@ -449,8 +449,8 @@ window.openHeatmap = function() {
       var isDaily = (S.mode === 'daily');
       var locId   = S.current ? S.current.id : null;
       var path    = isDaily
-        ? 'daily_guesses?date_key=eq.' + getViennaDateKey() + '&select=guess_lat,guess_lng&limit=500'
-        : locId ? 'daily_guesses?location_id=eq.' + encodeURIComponent(locId) + '&select=guess_lat,guess_lng&limit=300'
+        ? 'wels_daily_guesses?date_key=eq.' + getViennaDateKey() + '&select=guess_lat,guess_lng&limit=500'
+        : locId ? 'wels_daily_guesses?location_id=eq.' + encodeURIComponent(locId) + '&select=guess_lat,guess_lng&limit=300'
         : null;
       if (!path) { if(hintEl) hintEl.textContent='Keine Daten.'; return; }
       var rows = await sbFetch(path);

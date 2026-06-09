@@ -134,7 +134,7 @@ function getSurvivalThreshold(round) {
 })();
 
 // ── State ──
-var MAX_PTS=5000, CENTER=[47.947,14.358], NEXT_AUTO_SECS=20;
+var MAX_PTS=5000, CENTER=[48.157,14.028], NEXT_AUTO_SECS=20;
 var NAME_REGEX=/^[A-Za-z0-9.\-_]+$/;
 var _heartbeatListenerAdded = false;
 
@@ -177,11 +177,11 @@ function getYesterdayKey() {
   d.setUTCDate(d.getUTCDate()-1); return d.toISOString().slice(0,10);
 }
 function getStreakDataLocal() {
-  try { var raw=localStorage.getItem('tg_daily_streak'); if(!raw) return {count:0,lastDate:''}; return JSON.parse(raw); }
+  try { var raw=localStorage.getItem('wg_daily_streak'); if(!raw) return {count:0,lastDate:''}; return JSON.parse(raw); }
   catch(e) { return {count:0,lastDate:''}; }
 }
 function setStreakDataLocal(count, lastDate) {
-  try{localStorage.setItem('tg_daily_streak',JSON.stringify({count:count,lastDate:lastDate}));}catch(e){}
+  try{localStorage.setItem('wg_daily_streak',JSON.stringify({count:count,lastDate:lastDate}));}catch(e){}
 }
 async function updateStreak(dateKey) {
   var today=dateKey||getViennaDateKey(), yesterday=getYesterdayKey();
@@ -240,9 +240,9 @@ function startDailyTimers() {
 }
 
 // ── Session ──
-function saveSession(name,pwHash){try{localStorage.setItem('tg_name',name);localStorage.setItem('tg_ph',pwHash);}catch(e){}}
-function loadSession(){try{return{name:localStorage.getItem('tg_name')||'',pwHash:localStorage.getItem('tg_ph')||''};}catch(e){return{name:'',pwHash:''};}}
-function clearSession(){try{localStorage.removeItem('tg_name');localStorage.removeItem('tg_ph');}catch(e){}}
+function saveSession(name,pwHash){try{localStorage.setItem('wg_name',name);localStorage.setItem('wg_ph',pwHash);}catch(e){}}
+function loadSession(){try{return{name:localStorage.getItem('wg_name')||'',pwHash:localStorage.getItem('wg_ph')||''};}catch(e){return{name:'',pwHash:''};}}
+function clearSession(){try{localStorage.removeItem('wg_name');localStorage.removeItem('wg_ph');}catch(e){}}
 function refreshAuthUI(){
   var session=loadSession();
   S.isLoggedIn=!!(session.name&&session.pwHash);
@@ -261,11 +261,11 @@ function closeLogoutConfirm(){$('logout-confirm-overlay').classList.remove('show
 function confirmLogout(){clearSession();refreshAuthUI();closeLogoutConfirm();openLoginModal();}
 
 function getOrCreateDeviceId(){
-  var id=''; try{id=localStorage.getItem('tg_device_id')||'';}catch(e){}
-  if(!id){id=crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2);try{localStorage.setItem('tg_device_id',id);}catch(e){}}
+  var id=''; try{id=localStorage.getItem('wg_device_id')||'';}catch(e){}
+  if(!id){id=crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2);try{localStorage.setItem('wg_device_id',id);}catch(e){}}
   return id;
 }
-function getDailyLocalKey(dateKey){return 'tg_daily_done_'+dateKey;}
+function getDailyLocalKey(dateKey){return 'wg_daily_done_'+dateKey;}
 function hasPlayedDailyLocally(dateKey){try{return localStorage.getItem(getDailyLocalKey(dateKey))==='1';}catch(e){return false;}}
 function markDailyPlayedLocally(dateKey){try{localStorage.setItem(getDailyLocalKey(dateKey),'1');}catch(e){}}
 function updateDailyPlayAvailability(){
@@ -405,21 +405,21 @@ function hashStringSimple(str){
 }
 function getDailyLocationForKey(key){
   if(!Array.isArray(LOCATIONS)||!LOCATIONS.length)return null;
-  return LOCATIONS[hashStringSimple('ternberguessr-daily-'+key)%LOCATIONS.length];
+  return LOCATIONS[hashStringSimple('welsuessr-daily-'+key)%LOCATIONS.length];
 }
 
 function verdict(p){
   var pools=[
     [4950,['Wohnst du da oder was?','Perfektion. Schlechthin.','Bist du sicher, dass du nicht geschummelt hast?','Fotografisches Gedächtnis.','Unglaublich. Einfach unglaublich.','Du WOHNST dort, oder?']],
-    [4700,['Der war sehr gut.','Fast perfekt \u2014 fast.','Sehr stark, wirklich.','Du kennst Ternberg gut, nicht?','Beeindruckend.','Fast! Aber fast reicht nicht.']],
+    [4700,['Der war sehr gut.','Fast perfekt \u2014 fast.','Sehr stark, wirklich.','Du kennst Wels gut, nicht?','Beeindruckend.','Fast! Aber fast reicht nicht.']],
     [4300,['Sehr solid.','Klasse Runde!','Nicht schlecht, nicht schlecht.','Die Gegend hast du gefunden.','So geht das!','Sauber getroffen.']],
     [3600,['Ganz ordentlich.','Solide Leistung.','Kannst dich sehen lassen.','Nicht perfekt, aber gut.','Passt eh.','War ok das.']],
     [2800,['Mittelfeld. Geht so.','K\u00f6nnte besser sein.','Du bist irgendwie in der N\u00e4he.','War nicht optimal, aber ok.','Na ja. Hast du geschlafen?']],
-    [2000,['Du warst in der N\u00e4he. Naja.','Hmm. N\u00e4chstes Mal besser.','Das war... mutig.','Schaffst mehr, ich glaubs.','Ternberg ist gro\u00df, aber nicht SO gro\u00df.']],
-    [1200,['Hast du Ternberg schonmal auf der Karte gesehen?','Irgendwo in \u00d6sterreich immerhin.','Das war geraten und du wei\u00dft es.','Wenigstens im richtigen Land.','Zumindest europ\u00e4ischer Kontinent.']],
-    [600,['War das Absicht?','Mutig geraten.','Du hast einfach irgendwo geklickt.','Ternberg ist in \u00d6sterreich. Nur zur Info.','Fast null, aber das schaffst du auch noch.']],
+    [2000,['Du warst in der N\u00e4he. Naja.','Hmm. N\u00e4chstes Mal besser.','Das war... mutig.','Schaffst mehr, ich glaubs.','Wels ist gro\u00df, aber nicht SO gro\u00df.']],
+    [1200,['Hast du Wels schonmal auf der Karte gesehen?','Irgendwo in \u00d6sterreich immerhin.','Das war geraten und du wei\u00dft es.','Wenigstens im richtigen Land.','Zumindest europ\u00e4ischer Kontinent.']],
+    [600,['War das Absicht?','Mutig geraten.','Du hast einfach irgendwo geklickt.','Wels ist in \u00d6sterreich. Nur zur Info.','Fast null, aber das schaffst du auch noch.']],
     [150,['Ich frage mich ob du \u00fcberhaupt hingeschaut hast.','Das war nicht okay. Wirklich nicht.','Fast kein Punkt. Fast.','Du probierst so wenig Punkte wie m\u00f6glich zu bekommen oder?','Ich bin nicht w\u00fctend, nur entt\u00e4uscht.']],
-    [0,['Absolutes Meisterwerk des Versagens.','Du hast aktiv versucht falsch zu tippen.','Der wars wirklich ned.','Selbst mit verbundenen Augen w\u00e4rst du n\u00e4her dran.','Ich bin sprachlos.','Ternberg liegt in \u00d6sterreich, nicht im Meer.']]
+    [0,['Absolutes Meisterwerk des Versagens.','Du hast aktiv versucht falsch zu tippen.','Der wars wirklich ned.','Selbst mit verbundenen Augen w\u00e4rst du n\u00e4her dran.','Ich bin sprachlos.','Wels liegt in \u00d6sterreich, nicht im Meer.']]
   ];
   for(var i=0;i<pools.length;i++){
     if(p>=pools[i][0]){var o=pools[i][1];return o[Math.floor(Math.random()*o.length)];}
@@ -572,7 +572,7 @@ document.addEventListener('mousedown',function(e){
 // ── Game Map ──
 function initGameMap(){
   if(S.map){S.map.remove();S.map=null;}
-  var mapBounds=[[47.87,14.20],[48.03,14.54]];
+  var mapBounds=[[48.06,13.87],[48.27,14.18]];
   S.map=L.map('map-el',{center:CENTER,zoom:14,maxBounds:mapBounds,minZoom:12,maxZoom:19,zoomControl:false,attributionControl:false});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,maxNativeZoom:19}).addTo(S.map);
   setTimeout(function(){
@@ -926,7 +926,7 @@ function showFinal(){
   $('share-btn').style.display='block'; resetScoreSavedUI();
   if(S.mode==='survival')launchConfetti(120);
   setTimeout(function(){
-    var hsKey='tg_hs_'+S.mode,prevHs=0;
+    var hsKey='wg_hs_'+S.mode,prevHs=0;
     try{prevHs=parseInt(localStorage.getItem(hsKey)||'0');}catch(e){}
     var isNewHs=(S.score>0&&S.score>prevHs&&!S.isVs&&S.mode!=='daily');
     if(isNewHs){try{localStorage.setItem(hsKey,String(S.score));}catch(e){}}
@@ -981,7 +981,7 @@ function shareResult(){
     ctx.restore();
   }
   ctx.strokeStyle='rgba(201,168,76,0.35)';ctx.lineWidth=2;ctx.strokeRect(20,20,W-40,H-40);
-  ctx.fillStyle='rgba(245,240,232,0.5)';ctx.font='500 22px "DM Mono", monospace';ctx.fillText('TERNBERGUESSR',60,80);
+  ctx.fillStyle='rgba(245,240,232,0.5)';ctx.font='500 22px "DM Mono", monospace';ctx.fillText('WELSGUESSR',60,80);
   var modeLabels={solo:'Einzelspieler',vs:'1v1',daily:'Tägliche Challenge',survival:'🔥 Hitzewelle'};
   ctx.fillStyle='rgba(201,168,76,0.7)';ctx.font='18px "DM Mono", monospace';ctx.fillText(modeLabels[S.mode]||'',60,120);
   ctx.fillStyle='#c9a84c';ctx.font='bold 140px "Playfair Display", serif';ctx.fillText(fmtN(S.score),60,290);
@@ -993,13 +993,13 @@ function shareResult(){
   ctx.fillStyle='rgba(143,168,154,0.45)';ctx.font='15px "DM Mono", monospace';ctx.textAlign='right';ctx.fillText(getViennaDisplayDate(getViennaDateKey()),W-60,H-40);ctx.textAlign='left';
   canvas.toBlob(function(blob){
     if(!blob)return;
-    var file=new File([blob],'ternberguessr-ergebnis.png',{type:'image/png'});
-    var shareData={title:'TernberGuessr Ergebnis',text:'Ich habe '+fmtN(S.score)+' Punkte bei TernberGuessr! 🌍 Kannst du das toppen?',files:[file]};
+    var file=new File([blob],'welsuessr-ergebnis.png',{type:'image/png'});
+    var shareData={title:'WelsGuessr Ergebnis',text:'Ich habe '+fmtN(S.score)+' Punkte bei WelsGuessr! 🌍 Kannst du das toppen?',files:[file]};
     if(navigator.share&&navigator.canShare&&navigator.canShare(shareData)){navigator.share(shareData).catch(function(err){if(err&&err.name!=='AbortError')downloadShareImage(canvas);});}
     else downloadShareImage(canvas);
   },'image/png');
 }
-function downloadShareImage(canvas){var a=document.createElement('a');a.download='ternberguessr-ergebnis.png';a.href=canvas.toDataURL('image/png');a.click();}
+function downloadShareImage(canvas){var a=document.createElement('a');a.download='welsuessr-ergebnis.png';a.href=canvas.toDataURL('image/png');a.click();}
 
 // ── Leaderboard ──
 var lbAdminMode=false,lbLKeyCount=0,lbLKeyTimer=null;
@@ -1028,7 +1028,7 @@ var lbExpandedNames={},lbSubSort={};
 async function loadLeaderboardData(){
   $('lb-list').innerHTML='<div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Lade…</div>';
   try{
-    var path='scores?select=id,name,score,created_at';
+    var path='wels_scores?select=id,name,score,created_at';
     if(S.leaderboardTab==='week') path+='&created_at=gte.'+getWeekStartKeyVienna()+'T00:00:00';
     else if(S.leaderboardTab==='month'){var p=getViennaParts();path+='&created_at=gte.'+p.year+'-'+String(p.month).padStart(2,'0')+'-01T00:00:00';}
     path+='&order=score.desc&limit=200';
@@ -1111,7 +1111,7 @@ function renderSubScores(container,scores,sortMode){
 
 async function deleteLbEntry(id,wrap,isSub){
   try{
-    await sbFetch('scores?id=eq.'+id,'DELETE');tone(300,'sawtooth',.1,.06);
+    await sbFetch('wels_scores?id=eq.'+id,'DELETE');tone(300,'sawtooth',.1,.06);
     if(isSub){if(wrap)wrap.remove();loadLeaderboardData();}else{if(wrap)wrap.remove();}
   }catch(e){alert('Fehler beim Löschen: '+(e&&e.message?e.message:JSON.stringify(e)));}
 }
@@ -1200,11 +1200,11 @@ async function autoSaveLoggedInUser(){
   try{
     if(S.pendingSaveTarget==='daily'){
       var deviceId=getOrCreateDeviceId();
-      var res=await sbFetch('rpc/submit_daily_score','POST',{p_name:session.name,p_score:S.score,p_date_key:S.dailyKey,p_device_id:deviceId});
+      var res=await sbFetch('rpc/submit_wels_daily_score','POST',{p_name:session.name,p_score:S.score,p_date_key:S.dailyKey,p_device_id:deviceId});
       if(!res||!res.ok){if(res&&res.error==='ALREADY_PLAYED_TODAY'){markDailyPlayedLocally(S.dailyKey);markScoreSavedUI();}return;}
       markDailyPlayedLocally(S.dailyKey);markScoreSavedUI();updateDailyPlayAvailability();return;
     }
-    await sbFetch('scores','POST',{name:session.name,score:S.score});markScoreSavedUI();
+    await sbFetch('wels_scores','POST',{name:session.name,score:S.score});markScoreSavedUI();
   }catch(e){console.warn('Auto-save failed:',e);}
 }
 
@@ -1228,11 +1228,11 @@ async function submitScore(){
     }
     if(S.pendingSaveTarget==='daily'){
       var deviceId=getOrCreateDeviceId();
-      var res=await sbFetch('rpc/submit_daily_score','POST',{p_name:name,p_score:S.score,p_date_key:S.dailyKey,p_device_id:deviceId});
+      var res=await sbFetch('rpc/submit_wels_daily_score','POST',{p_name:name,p_score:S.score,p_date_key:S.dailyKey,p_device_id:deviceId});
       if(!res||!res.ok){$('save-error').textContent=(res&&res.error==='ALREADY_PLAYED_TODAY')?'Du hast die Daily heute auf diesem Gerät schon gespielt.':'Fehler beim Speichern.';$('save-submit-btn').disabled=false;return;}
       markDailyPlayedLocally(S.dailyKey);closeModal('save-modal');markScoreSavedUI();await loadDailyBoard();updateDailyPlayAvailability();show('daily-screen');return;
     }
-    await sbFetch('scores','POST',{name:name,score:S.score});closeModal('save-modal');markScoreSavedUI();openLeaderboard();
+    await sbFetch('wels_scores','POST',{name:name,score:S.score});closeModal('save-modal');markScoreSavedUI();openLeaderboard();
   }catch(e){$('save-error').textContent=(e&&e.error==='ALREADY_PLAYED_TODAY')?'Du hast die Daily heute auf diesem Gerät schon gespielt.':'Fehler beim Speichern.';$('save-submit-btn').disabled=false;}
 }
 
@@ -1245,7 +1245,7 @@ async function hashString(s){
 async function loadDailyChampions(){
   var section=$('daily-champions-section'),list=$('daily-champions-list');if(!section||!list)return;
   try{
-    var rows=await sbFetch('daily_scores?date_key=eq.'+getYesterdayKey()+'&select=name,score&order=score.desc&limit=3');
+    var rows=await sbFetch('wels_daily_scores?date_key=eq.'+getYesterdayKey()+'&select=name,score&order=score.desc&limit=3');
     if(!rows||rows.length<1){section.style.display='none';return;}
     // Sort by score descending to ensure correct rank assignment
     rows=rows.slice().sort(function(a,b){return b.score-a.score;});
@@ -1287,7 +1287,7 @@ async function loadDailyBoard(){
   var boardEl=$('daily-lb-list');if(!boardEl)return;
   boardEl.innerHTML='<div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Lade…</div>';
   try{
-    var rows=await sbFetch('daily_scores?date_key=eq.'+getViennaDateKey()+'&select=name,score,created_at&order=score.desc&limit=50');
+    var rows=await sbFetch('wels_daily_scores?date_key=eq.'+getViennaDateKey()+'&select=name,score,created_at&order=score.desc&limit=50');
     boardEl.innerHTML='';
     if(!rows||!rows.length){boardEl.innerHTML='<div style="font-size:.72rem;color:var(--mist);text-align:center;padding:1.2rem">Heute noch keine Einträge.</div>';return;}
     var medals=['🥇','🥈','🥉'];
@@ -1799,7 +1799,7 @@ var ACHIEVEMENTS=[
   {key:'first_perfect',icon:'💎',title:'Perfektion',desc:'5000 Punkte in einer Runde'},
   {key:'streak_3',icon:'🔥',title:'Am Laufen',desc:'3 Tage in Folge gespielt'},
   {key:'streak_7',icon:'🔥🔥',title:'Auf Kurs',desc:'7 Tage in Folge gespielt'},
-  {key:'streak_30',icon:'👑',title:'Ternberg-Legende',desc:'30 Tage in Folge gespielt'},
+  {key:'streak_30',icon:'👑',title:'Wels-Legende',desc:'30 Tage in Folge gespielt'},
   {key:'score_10k',icon:'⭐',title:'Über 10.000',desc:'10.000+ Punkte in einem Spiel'},
   {key:'score_20k',icon:'🌟',title:'Über 20.000',desc:'20.000+ Punkte in einem Spiel'},
   {key:'score_25k',icon:'🏆',title:'Maximale Leistung',desc:'25.000 Punkte — perfektes Spiel'},
@@ -1833,8 +1833,8 @@ async function checkAndUnlockAchievements(opts){
   }catch(e){}
 }
 
-// achievement toast queue — so mehrere Toasts nicht übereinander sind
-var _achToastQueue=[], _achToastCombo=0, _achToastTimer=null;
+// achievement toast queue
+var _achToastQueue=[], _achToastTimer=null;
 
 function showAchievementToast(def){
   _achToastQueue.push(def);
@@ -1844,16 +1844,11 @@ function showAchievementToast(def){
 function _drainAchQueue(){
   if(!_achToastQueue.length){ _achToastTimer=null; return; }
   var def=_achToastQueue.shift();
-  _achToastCombo++;
-  _playAchievementSound(_achToastCombo);
+  _playAchievementSound();
 
   var toast=document.createElement('div');
   toast.className='achievement-toast';
-  var comboTag=_achToastCombo>1
-    ? '<div class="ach-toast-combo">'+_achToastCombo+'x Combo! 🔥</div>'
-    : '';
   toast.innerHTML=
-    comboTag+
     '<span class="ach-toast-icon">'+def.icon+'</span>'+
     '<div><div class="ach-toast-title">'+def.title+'</div>'+
     '<div class="ach-toast-desc">'+def.desc+'</div></div>';
@@ -1866,24 +1861,12 @@ function _drainAchQueue(){
   },3000);
 }
 
-function _playAchievementSound(combo){
+function _playAchievementSound(){
   if(VOL===0) return;
-  // Tonhöhe steigt mit jeder Combo
-  var base=440, step=80;
-  var freq=Math.min(base+step*(combo-1), 1800);
+  var freq=520;
   tone(freq,'sine',.12,.1);
   tone(freq*1.25,'sine',.09,.07,0,.07);
   tone(freq*1.5,'sine',.07,.05,0,.13);
-  if(combo>=3){
-    setTimeout(function(){ chord([freq,freq*1.25,freq*1.5,freq*2],'sine',.25,.06); },180);
-  }
-}
-
-// Combo-Reset nach Pause
-var _achComboResetTimer=null;
-function _resetAchComboSoon(){
-  clearTimeout(_achComboResetTimer);
-  _achComboResetTimer=setTimeout(function(){ _achToastCombo=0; },6000);
 }
 
 // K-Taste: Test-Achievement (zählt nicht, wird nicht gespeichert)
@@ -1891,6 +1874,17 @@ document.addEventListener('keydown',function(e){
   if(e.key==='k'||e.key==='K'){
     showAchievementToast({icon:'🧪',title:'Test-Achievement',desc:'Nur zum Ausprobieren — zählt nicht!'});
   }
+});
+
+// ── MEHR GUESSR DROPDOWN ──
+function toggleMehrGuessr(e){
+  e.stopPropagation();
+  var dd=document.getElementById('mehr-guessr-dropdown');
+  if(dd) dd.classList.toggle('open');
+}
+document.addEventListener('click',function(){
+  var dd=document.getElementById('mehr-guessr-dropdown');
+  if(dd) dd.classList.remove('open');
 });
 
 // ── SCORE CHART ──
@@ -2015,7 +2009,7 @@ async function submitDifficultyRating(rating){
 async function saveGuessToDb(locId){
   if(!S.guessLatLng||!S.current)return;
   var name=S.isLoggedIn?S.loggedInName:null;
-  sbFetch('daily_guesses','POST',{
+  sbFetch('wels_daily_guesses','POST',{
     date_key:S.dailyKey||getViennaDateKey(),
     location_id:locId,
     guess_lat:S.guessLatLng.lat,
@@ -2029,7 +2023,7 @@ async function showOtherGuessesOnResultMap(locId){
   if(!S.resultMap)return;
   try{
     var rows=await sbFetch(
-      'daily_guesses?location_id=eq.'+encodeURIComponent(locId)+'&select=guess_lat,guess_lng,player_name&limit=400'
+      'wels_daily_guesses?location_id=eq.'+encodeURIComponent(locId)+'&select=guess_lat,guess_lng,player_name&limit=400'
     );
     if(!rows||!rows.length)return;
     rows.forEach(function(row){
@@ -2054,7 +2048,7 @@ async function openHeatmap(){
     setTimeout(function(){if(_heatmapMap)_heatmapMap.invalidateSize();},200);
     try{
       // Alle Guesses laden (kein Datumsfilter) - für immer gespeichert
-      var rows=await sbFetch('daily_guesses?select=guess_lat,guess_lng,date_key&limit=2000&order=id.desc');
+      var rows=await sbFetch('wels_daily_guesses?select=guess_lat,guess_lng,date_key&limit=2000&order=id.desc');
       if(!rows||!rows.length){
         $('heatmap-hint').textContent='Noch keine Daten vorhanden.';
         return;
@@ -2105,7 +2099,7 @@ async function openProfile(playerName){
   $('profile-achievements').innerHTML='<div style="font-size:.65rem;color:var(--mist)">Lade...</div>';
   $('profile-recent-scores').innerHTML='';
   try{
-    var scores=await sbFetch('scores?name=ilike.'+encodeURIComponent(name)+'&select=score,created_at&order=created_at.desc&limit=50');
+    var scores=await sbFetch('wels_scores?name=ilike.'+encodeURIComponent(name)+'&select=score,created_at&order=created_at.desc&limit=50');
     var games=scores?scores.length:0;
     var best=scores&&scores.length?Math.max.apply(null,scores.map(function(r){return r.score;})):0;
     var avg=games?Math.round(scores.reduce(function(a,r){return a+r.score;},0)/games):0;
@@ -2123,12 +2117,12 @@ async function openProfile(playerName){
     var haveKeys=new Set((achRows||[]).map(function(r){return r.achievement_key;}));
     var achHtml=ACHIEVEMENTS.map(function(a){
       var unlocked=haveKeys.has(a.key);
-      return '<div class="ach-item'+(unlocked?'':' ach-locked')+'">'
+      return '<div class="ach-item'+(unlocked?' ach-unlocked':' ach-locked')+'">'
         +'<span class="ach-icon">'+a.icon+'</span>'
         +'<div class="ach-info"><div class="ach-title">'+a.title+'</div><div class="ach-desc">'+a.desc+'</div></div>'
         +(unlocked?'<span class="ach-check">✓</span>':'')+'</div>';
     }).join('');
-    $('profile-achievements').innerHTML=achHtml||'<div style="font-size:.65rem;color:var(--mist)">Noch keine Erfolge.</div>';
+    $('profile-achievements').innerHTML=achHtml?'<div class="ach-grid">'+achHtml+'</div>':'<div style="font-size:.65rem;color:var(--mist)">Noch keine Erfolge.</div>';
     // recent scores
     var recentHtml=(scores||[]).slice(0,10).map(function(r){
       var d=new Date(r.created_at);
@@ -2151,7 +2145,7 @@ function afterFinalExtras(){
   sbFetch('players?name=ilike.'+encodeURIComponent(S.loggedInName)+'&select=streak_count').then(function(r){
     var streak=(r&&r.length)?(r[0].streak_count||0):0;
     var dailyCount=0;
-    try{for(var k in localStorage){if(k.startsWith('tg_daily_done_'))dailyCount++;}}catch(e){}
+    try{for(var k in localStorage){if(k.startsWith('wg_daily_done_'))dailyCount++;}}catch(e){}
     checkAndUnlockAchievements({
       firstGame:true,
       perfectRound:S.roundScores.some(function(r){return r.pts>=4990;}),

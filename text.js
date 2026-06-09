@@ -1,8 +1,8 @@
 const T = {
 
   // main
-  appName:        'TernberGuessr',
-  appTagline:     'wie gut kennst du ternberg?',
+  appName:        'WelsGuessr',
+  appTagline:     'wie gut kennst du wels?',
   footerMade:     'Website mit Liebe von Fabio erstellt.',
 
   // account
@@ -42,7 +42,7 @@ const T = {
   menuDailySub:     'Ein Spot, jeden Tag neu.',
   menuDailyCta:     'Ansehen →',
   menuVsTitle:      '1v1',
-  menuVsSub:        'Wer ist der wahre Ternberger?',
+  menuVsSub:        'Wer ist der wahre Welsbewohner?',
   menuVsCta:        'Starten →',
   menuSurvivalTitle:'Hitzewelle',
   menuSurvivalSub:  '12 Runden. Mindestpunktzahl steigt.',
@@ -153,10 +153,10 @@ const T = {
     first_perfect:{ icon: '💎', title: 'Perfektion',        desc: '5000 Punkte in einer Runde' },
     streak_3:     { icon: '🔥', title: 'Am Laufen',         desc: '3 Tage in Folge gespielt' },
     streak_7:     { icon: '🔥🔥',title: 'Auf Kurs',         desc: '7 Tage in Folge gespielt' },
-    streak_30:    { icon: '👑', title: 'Aktiver Ternberger',  desc: '30 Tage in Folge gespielt' },
+    streak_30:    { icon: '👑', title: 'Aktiver Welsbewohner',  desc: '30 Tage in Folge gespielt' },
     score_10k:    { icon: '⭐', title: 'Über 10.000',       desc: '10.000+ Punkte in einem Spiel' },
     score_20k:    { icon: '🌟', title: 'Über 20.000',       desc: '20.000+ Punkte in einem Spiel' },
-    score_25k:    { icon: '🏆', title: 'Wahrer Ternberger', desc: '25.000 Punkte. Perfektes Spiel' },
+    score_25k:    { icon: '🏆', title: 'Wahrer Welsbewohner', desc: '25.000 Punkte. Perfektes Spiel' },
     survival_win: { icon: '🌋', title: 'Überlebt!',         desc: 'Alle 12 Hitzewelle Runden bestanden' },
     daily_10:     { icon: '📅', title: 'Stammgast',         desc: '10 Daily Challenges gespielt' },
   },
@@ -192,23 +192,23 @@ const T = {
 
   verdictPools: [
     [4950, ['Wohnst du da oder was?', 'WOW!', 'Schon narrisch', 'Fotografisches Gedächtnis.', 'Unglaublich.', 'Du WOHNST dort, oder?']],
-    [4700, ['Der war sehr gut.', 'Fast perfekt.', 'Sehr stark, wirklich.', 'Du kennst Ternberg gut!', 'Beeindruckend.', 'Den hast!']],
+    [4700, ['Der war sehr gut.', 'Fast perfekt.', 'Sehr stark, wirklich.', 'Du kennst Wels gut!', 'Beeindruckend.', 'Den hast!']],
     [4300, ['Sehr solid.', 'Gute Runde!', 'Nicht schlecht, nicht schlecht.', 'Die Gegend hast du gefunden.', 'So geht das!', 'Sauber getroffen.']],
     [3600, ['Ganz ordentlich.', 'Solide Leistung.', 'Wars nicht doch das andere Haus?', 'Nicht perfekt, aber gut.', 'Passt eh.', 'War ok.']],
     [2800, ['Mittelfeld. Geht so.', 'Könnte besser sein.', 'Du bist irgendwie in der Nähe.', 'War nicht optimal, aber ok.', 'Na ja. Hast du geschlafen?']],
-    [2000, ['Du warst in der Nähe. Naja.', 'Hmm. Nächstes Mal besser.', 'Das war mutig.', 'Schaffst mehr, ich glaubs.', 'Ternberg ist groß, aber nicht SO groß.']],
-    [1200, ['Hast du Ternberg schonmal auf der Karte gesehen?', 'Irgendwo in Österreich immerhin.', 'Wennst meinst.', 'Wenigstens im richtigen Land.', 'Zumindest europäischer Kontinent.']],
-    [600,  ['War das Absicht?', 'Mutig geraten.', 'Du hast einfach irgendwo geklickt.', 'Ternberg ist in Österreich. Nur zur Info.', 'Fast null, aber das schaffst du auch noch.']],
+    [2000, ['Du warst in der Nähe. Naja.', 'Hmm. Nächstes Mal besser.', 'Das war mutig.', 'Schaffst mehr, ich glaubs.', 'Wels ist groß, aber nicht SO groß.']],
+    [1200, ['Hast du Wels schonmal auf der Karte gesehen?', 'Irgendwo in Österreich immerhin.', 'Wennst meinst.', 'Wenigstens im richtigen Land.', 'Zumindest europäischer Kontinent.']],
+    [600,  ['War das Absicht?', 'Mutig geraten.', 'Du hast einfach irgendwo geklickt.', 'Wels ist in Österreich. Nur zur Info.', 'Fast null, aber das schaffst du auch noch.']],
     [150,  ['Ich frage mich ob du überhaupt hingeschaut hast.', 'Wennst meinst.', 'Fast kein Punkt.', 'Ich bin nicht wütend, nur enttäuscht.', 'Ich bin nicht wütend, nur enttäuscht.']],
-    [0,    ['Ternberg ist in Österreich, nicht in Asien.', 'Na.', 'Der wars wirklich ned.', 'Selbst mit verbundenen Augen wärst du näher dran.', 'Ich bin sprachlos.']]
+    [0,    ['Wels ist in Österreich, nicht in Asien.', 'Na.', 'Der wars wirklich ned.', 'Selbst mit verbundenen Augen wärst du näher dran.', 'Ich bin sprachlos.']]
   ],
   // streak
   streakDaySingle:  'Tag gespielt!',
   streakDayMultiple:'Tage in Folge gespielt!',
 
   // changelog
-  changelogEyebrow:  'TernberGuessr News',
-  changelogTitle:    'TernberGuessr',
+  changelogEyebrow:  'WelsGuessr News',
+  changelogTitle:    'WelsGuessr',
   changelogSubtitle: 'Alle Änderungen, Ankündigungen & Neuerungen',
   changelogEmpty:    'Noch keine Updates eingetragen.',
   changelogLoading:  'Lade…',
