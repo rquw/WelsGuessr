@@ -7,6 +7,5 @@ schwaiger.fabio0907@gmail.com
 +43 676 341 92 12
 
 **Rechtliches**
-Diese Website hat nichts mit irgendwas Offiziellem zu tun.B
-ilder/Panoramas sind direkt von der Google Street View API gezogen.
+Diese Website hat nichts mit irgendwas Offiziellem zu tun. Bilder/Panoramas sind direkt von der Google Street View API gezogen.
 Bitte nimm kein Passwort, das du regulär benützt, für einen Account auf dieser Website.

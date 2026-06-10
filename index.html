@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -94,25 +94,26 @@
   <div class="start-main" id="start-main">
     <button class="big-btn primary" onclick="openPlayMenu()">Spielen</button>
     <button class="big-btn" onclick="openLeaderboard()">Bestenliste</button>
-    <div class="start-btn-row">
-      <button class="info-btn-small" onclick="openInfoScreen()">Info</button>
-    </div>
-    <div class="mehr-guessr-wrap" id="mehr-guessr-wrap">
-      <button class="info-btn-small mehr-guessr-btn" onclick="toggleMehrGuessr(event)">🌍 Mehr Guessr! ▾</button>
-      <div class="mehr-guessr-dropdown" id="mehr-guessr-dropdown">
-        <div class="mehr-guessr-item" onclick="window.location.href='https://rquw.github.io/TernberGuessr'">
-          <span class="mehr-guessr-check" style="visibility:hidden">✓</span>TernberGuessr
-        </div>
-        <div class="mehr-guessr-item mehr-guessr-active">
-          <span class="mehr-guessr-check">✓</span>WelsGuessr
+    <button class="big-btn" onclick="openInfoScreen()">Info</button>
+    <div class="start-icon-btns">
+      <button class="start-icon-btn" id="profile-btn" data-label="Profil" onclick="openProfile()" aria-label="Profil öffnen">👤</button>
+      <a class="start-icon-btn" href="https://ko-fi.com/fabioss" target="_blank" rel="noopener" data-label="Unterstützen">$</a>
+      <div class="mehr-guessr-wrap" id="mehr-guessr-wrap">
+        <button class="start-icon-btn mehr-guessr-btn" data-label="Mehr Guessr" onclick="toggleMehrGuessr(event)">🌍</button>
+        <div class="mehr-guessr-dropdown" id="mehr-guessr-dropdown">
+          <div class="mehr-guessr-item" onclick="window.location.href='https://rquw.github.io/TernberGuessr'">
+            <span class="mehr-guessr-check" style="visibility:hidden">✓</span>TernberGuessr
+          </div>
+          <div class="mehr-guessr-item mehr-guessr-active">
+            <span class="mehr-guessr-check">✓</span>WelsGuessr
+          </div>
         </div>
       </div>
+      <button class="start-icon-btn" data-label="Was ist neu?" onclick="openChangelog()" aria-label="Was ist neu?">📰</button>
     </div>
-    <a class="kofi-btn" href="https://ko-fi.com/fabioss" target="_blank" rel="noopener" title="Wenn du willst, kannst du gerne meine Arbeit unterstützen! :)">☕ Unterstütze mich</a>
   </div>
   <div class="footer-made">Website mit Liebe von Fabio erstellt.</div>
   <button id="auth-btn" class="logged-out" onclick="handleAuthBtn()">Anmelden</button>
-  <button id="profile-btn" onclick="openProfile()" title="Mein Profil" aria-label="Profil öffnen">👤</button>
 </div>
 
 <!-- INFO SCREEN -->
@@ -196,7 +197,7 @@
       <div class="menu-card-left">
         <div id="survival-neu-badge" class="survival-badge">Neu</div>
         <div class="menu-card-title">Hitzewelle</div>
-        <div class="menu-card-sub">12 Runden. Jede Runde musst du eine Mindestpunktzahl erreichen — sonst bist du raus.</div>
+        <div class="menu-card-sub">12 Runden, steigende Schwellen.<br>Bleib über dem Limit — oder du bist raus.</div>
       </div>
       <div class="menu-card-right">
         <button class="menu-card-cta ember" onclick="startSurvival();event.stopPropagation()">Durchhalten →</button>
@@ -481,19 +482,72 @@
 <div class="modal-bg" id="login-modal">
   <div class="modal" id="login-modal-inner">
     <h2 style="font-size:1.5rem;text-align:center;line-height:1.2">Hast du schon einen Account?</h2>
-    <p class="modal-hint" style="text-align:center">Melde dich an oder erstelle einen neuen — damit werden deine Punkte automatisch gespeichert.</p>
+    <p class="modal-hint" style="text-align:center">Melde dich an oder erstelle einen neuen. Damit werden deine Punkte automatisch gespeichert!</p>
     <div class="account-toggle" style="margin-bottom:.25rem">
       <button class="toggle-btn" id="login-toggle-no" onclick="setLoginMode('new')">Neuer Account</button>
       <button class="toggle-btn" id="login-toggle-yes" onclick="setLoginMode('existing')">Einloggen</button>
     </div>
-    <input class="modal-input" id="login-name" placeholder="Dein Name" maxlength="20" autocomplete="off">
+    <input class="modal-input" id="login-name" placeholder="Spitzname" maxlength="20" autocomplete="off">
     <div class="name-avail" id="login-name-avail"></div>
+    <div id="login-realname-fields" style="display:flex;flex-direction:column;gap:.5rem">
+      <input class="modal-input" id="login-vorname" placeholder="Vorname" maxlength="30" autocomplete="off">
+      <input class="modal-input" id="login-nachname" placeholder="Nachname (optional)" maxlength="30" autocomplete="off">
+    </div>
     <input class="modal-input" id="login-pw" type="password" placeholder="Passwort" maxlength="40">
     <div class="modal-hint" id="login-pw-hint" style="font-size:.6rem"></div>
     <div class="modal-error" id="login-error"></div>
     <div class="modal-row">
       <button class="big-btn primary" id="login-submit-btn" onclick="submitLogin()" style="flex:1;padding:.8rem 1rem">Anmelden</button>
-      <button class="big-btn" onclick="closeModal('login-modal')" style="flex:1;padding:.8rem 1rem">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<!-- BITTE NAME EINGEBEN -->
+<div id="name-prompt-modal">
+  <div class="modal" id="name-prompt-modal-inner">
+    <h2 style="font-size:1.4rem;text-align:center;line-height:1.2">Bitte sag uns deinen Namen!</h2>
+    <p class="modal-hint" style="text-align:center;font-size:.72rem">Falls mal eine Veranstaltung ist, und wir wissen müssen wer das ist.</p>
+    <input class="modal-input" id="name-prompt-vorname" placeholder="Vorname" maxlength="30" autocomplete="off">
+    <input class="modal-input" id="name-prompt-nachname" placeholder="Nachname (optional)" maxlength="30" autocomplete="off">
+    <div class="modal-error" id="name-prompt-error"></div>
+    <div class="modal-row">
+      <button class="big-btn primary" id="name-prompt-submit-btn" onclick="submitNamePrompt()" style="flex:1;padding:.8rem 1rem">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN EINTRAG HINZUFÜGEN -->
+<div class="modal-bg" id="admin-edit-player-modal">
+  <div class="modal" id="admin-edit-player-modal-inner">
+    <h2 style="font-size:1.2rem;text-align:center">Spieler bearbeiten</h2>
+    <p id="admin-edit-player-label" class="modal-hint" style="text-align:center;font-size:.72rem"></p>
+    <div style="display:flex;flex-direction:column;gap:.3rem">
+      <div class="modal-field-label">Spitzname</div>
+      <input class="modal-input" id="admin-edit-spitzname" placeholder="Spitzname" maxlength="30" autocomplete="off">
+      <div class="modal-field-label" style="margin-top:.4rem">Vorname</div>
+      <input class="modal-input" id="admin-edit-vorname" placeholder="Vorname" maxlength="30" autocomplete="off">
+      <div class="modal-field-label" style="margin-top:.4rem">Nachname (optional)</div>
+      <input class="modal-input" id="admin-edit-nachname" placeholder="Nachname" maxlength="30" autocomplete="off">
+    </div>
+    <div class="modal-error" id="admin-edit-error"></div>
+    <div class="modal-row" style="gap:.5rem">
+      <button class="big-btn primary" onclick="submitAdminEditPlayer()" style="flex:1;padding:.75rem">Speichern</button>
+      <button class="big-btn" onclick="closeModal('admin-edit-player-modal')" style="flex:1;padding:.75rem">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="admin-add-entry-modal">
+  <div class="modal" id="admin-add-entry-modal-inner">
+    <h2 style="font-size:1.2rem;text-align:center">Eintrag hinzufügen</h2>
+    <p id="admin-add-entry-player" class="modal-hint" style="text-align:center;font-size:.75rem"></p>
+    <input class="modal-input" id="admin-add-score" type="number" placeholder="Punkte (0–25000)" min="0" max="25000">
+    <input class="modal-input" id="admin-add-date" type="date">
+    <input class="modal-input" id="admin-add-time" type="time">
+    <div class="modal-error" id="admin-add-error"></div>
+    <div class="modal-row" style="gap:.5rem">
+      <button class="big-btn primary" onclick="submitAdminAddEntry()" style="flex:1;padding:.75rem">Hinzufügen</button>
+      <button class="big-btn" onclick="closeModal('admin-add-entry-modal')" style="flex:1;padding:.75rem">Abbrechen</button>
     </div>
   </div>
 </div>
@@ -501,8 +555,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=2"></script>
 <script src="text.js?v=1"></script>
-<script src="script.js?v=8"></script>
-<script src="patches.js?v=7"></script>
+<script src="script.js?v=9"></script>
+<script src="patches.js?v=8"></script>
 <!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">
   <div class="modal changelog-modal-inner" id="changelog-modal-inner">
@@ -579,6 +633,7 @@
       <div class="profile-header-info">
         <div class="profile-name" id="profile-name-display">—</div>
         <div class="profile-since" id="profile-since"></div>
+        <button id="profile-self-edit-btn" class="profile-edit-btn" style="display:none">✏️ Profil bearbeiten</button>
       </div>
     </div>
     <div class="profile-stats-grid">

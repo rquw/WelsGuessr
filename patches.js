@@ -133,11 +133,24 @@ document.addEventListener('DOMContentLoaded', function() {
     var name = playerName || (S.isLoggedIn ? S.loggedInName : null);
     if (!name) return;
 
+    // Leaderboard schließen, wenn offen
+    var _lb = document.getElementById('lb-modal');
+    if (_lb && _lb.classList.contains('open')) closeModal('lb-modal');
+
     show('profile-screen');
     var el;
-    el = document.getElementById('profile-name-display'); if (el) el.textContent = name;
+    el = document.getElementById('profile-name-display');
+    if (el) { el.textContent = name; el.setAttribute('data-spitzname', name); el.removeAttribute('data-realname'); el.style.color = ''; }
     el = document.getElementById('profile-avatar');       if (el) el.textContent = name.charAt(0).toUpperCase();
     el = document.getElementById('profile-since');        if (el) el.textContent = '';
+
+    // Eigenes Profil → Bearbeiten-Button anzeigen
+    var _editBtn = document.getElementById('profile-self-edit-btn');
+    if (_editBtn) {
+      var _isOwn = S.isLoggedIn && S.loggedInName && S.loggedInName.toLowerCase() === name.toLowerCase();
+      _editBtn.style.display = _isOwn ? '' : 'none';
+      if (_isOwn) _editBtn.onclick = function(){ openAdminEditPlayer(name); };
+    }
 
     // dev-badge für fabio
     var oldBadge = document.getElementById('dev-badge-fabio');
@@ -192,6 +205,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
 
+      // Vorname/Nachname für Hover (isoliert — bricht nicht, wenn Spalten fehlen)
+      try {
+        var _pinfo = await sbFetch('players?name=ilike.' + encodeURIComponent(name) + '&select=vorname,nachname');
+        if (_pinfo && _pinfo.length && _pinfo[0].vorname) {
+          var _rn = _pinfo[0].vorname + (_pinfo[0].nachname ? ' ' + _pinfo[0].nachname : '');
+          var _nd = document.getElementById('profile-name-display');
+          if (_nd) _nd.setAttribute('data-realname', _rn);
+        }
+      } catch(_) {}
+
       var achRows = await sbFetch(
         'achievements?player_name=ilike.' + encodeURIComponent(name) + '&select=achievement_key'
       );
@@ -214,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var recentHtml = (scores || []).slice(0, 12).map(function(r) {
         var rd = new Date(r.created_at);
         return '<div class="profile-score-row">' +
-          '<span>' + rd.toLocaleDateString('de-AT', { day:'2-digit', month:'2-digit', year:'numeric' }) + '</span>' +
+          '<span>' + (typeof fmtDate === 'function' ? fmtDate(rd) : rd.toLocaleDateString('de-AT', { day:'2-digit', month:'2-digit', year:'numeric' })) + '</span>' +
           '<span class="gold">' + fmtN(r.score) + ' Pkt.</span>' +
           '</div>';
       }).join('');
@@ -423,7 +446,7 @@ function _patchedAfterFinalExtras() {
         streak:        streak,
         totalScore:    S.score,
         survivalWin:   S.mode === 'survival' && !S.survivalEliminated && S.round >= S.roundsTotal - 1,
-        survivalRound: S.round || 0,
+        survivalRound: S.mode === 'survival' ? (S.round || 0) : 0,
         dailyCount:    dailyCount,
         minDist:       S.minDist,
         nightOwl:      (hour >= 0 && hour < 5),
