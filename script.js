@@ -138,11 +138,15 @@ var MAX_PTS=5000, CENTER=[48.157,14.028], NEXT_AUTO_SECS=20;
 var SCORES_TABLE='wels_scores', DAILY_TABLE='wels_daily_scores';
 var NAME_REGEX=/^[A-Za-z0-9.\-_]+$/;
 var _heartbeatListenerAdded = false;
+// Touch-Gerät? → Hover-Inhalte werden per Tippen erreichbar gemacht
+var IS_TOUCH = (('ontouchstart' in window) || (navigator.maxTouchPoints>0));
+try{ if(IS_TOUCH && document.body) document.body.classList.add('is-touch');
+  else if(IS_TOUCH) document.addEventListener('DOMContentLoaded',function(){document.body.classList.add('is-touch');}); }catch(e){}
 
 var S = {
   round:0, score:0, roundScores:[], locations:[], current:null,
   guessLatLng:null, map:null, resultMap:null, pinMarker:null,
-  expanded:false, panoAngle:0, panoZoom:1, isDragging:false, dragStartX:0, dragStartAngle:0,
+  expanded:false, panoAngle:0, panoZoom:1, panoVOff:0, isDragging:false, dragStartX:0, dragStartAngle:0,
   isVs:false, vsRoom:null, vsIsHost:false, vsMyName:'', vsTheirName:'',
   vsMyScores:[], vsTheirScores:[],
   vsPollInterval:null, vsSpecPollInterval:null,
@@ -423,7 +427,7 @@ function getDailyLocationForKey(key){
 function verdict(p){
   var pools=[
     [4950,['Wohnst du da oder was?','Perfektion. Schlechthin.','Bist du sicher, dass du nicht geschummelt hast?','Fotografisches Gedächtnis.','Unglaublich. Einfach unglaublich.','Du WOHNST dort, oder?']],
-    [4700,['Der war sehr gut.','Fast perfekt \u2014 fast.','Sehr stark, wirklich.','Du kennst Wels gut, nicht?','Beeindruckend.','Fast! Aber fast reicht nicht.']],
+    [4700,['Der war sehr gut.','Fast perfekt, fast.','Sehr stark, wirklich.','Du kennst Wels gut, nicht?','Beeindruckend.','Fast! Aber fast reicht nicht.']],
     [4300,['Sehr solid.','Klasse Runde!','Nicht schlecht, nicht schlecht.','Die Gegend hast du gefunden.','So geht das!','Sauber getroffen.']],
     [3600,['Ganz ordentlich.','Solide Leistung.','Kannst dich sehen lassen.','Nicht perfekt, aber gut.','Passt eh.','War ok das.']],
     [2800,['Mittelfeld. Geht so.','K\u00f6nnte besser sein.','Du bist irgendwie in der N\u00e4he.','War nicht optimal, aber ok.','Na ja. Hast du geschlafen?']],
@@ -510,7 +514,7 @@ function playScoreSfx(points){
 function loadPano(loc){
   var strip=$('pano-strip'); strip.innerHTML='';
   $('pano-error').classList.remove('show');
-  S.panoLoadFailed=false; S.panoZoom=1; updatePanoZoom();
+  S.panoLoadFailed=false; S.panoZoom=1; S.panoVOff=0; updatePanoZoom();
   var errors=0;
   [0,90,180,270].forEach(function(h){
     var src='images/'+loc.id+'_h'+String(h).padStart(3,'0')+'.jpg';
@@ -542,16 +546,45 @@ function updatePano(){
   var strip=$('pano-strip'),hw=strip.scrollWidth/2;
   if(!hw){setTimeout(updatePano,60);return;}
   strip.style.transform='translateX(-'+(((S.panoAngle%360)+360)%360)/360*hw+'px)';
-  $('compass').textContent=hdg(S.panoAngle);
+  var cd=document.getElementById('compass-dir'); if(cd)cd.textContent=hdg(S.panoAngle);
+  var ndl=document.querySelector('#compass .compass-needle'); if(ndl)ndl.style.transform='rotate('+(((S.panoAngle%360)+360)%360)+'deg)';
 }
+var PANO_MIN_ZOOM=1, PANO_MAX_ZOOM=3.2;
+function clampZoom(z){return Math.max(PANO_MIN_ZOOM,Math.min(PANO_MAX_ZOOM,z));}
 function updatePanoZoom(){
+  var strip=$('pano-strip'),cont=$('pano-container'); if(!strip)return;
+  var ch=cont?cont.clientHeight:0, H=S.panoZoom*ch;
+  strip.style.height=(S.panoZoom*100)+'%';
+  // vertikalen Versatz (px) anwenden & einklemmen, damit nie schwarz oben/unten erscheint
+  if(typeof S.panoVOff!=='number')S.panoVOff=0;
+  var minOff=ch-H; if(minOff>0)minOff=0;
+  if(S.panoVOff>0)S.panoVOff=0; else if(S.panoVOff<minOff)S.panoVOff=minOff;
+  strip.style.marginTop=(ch?S.panoVOff:0)+'px';
+}
+// Zoom mit Verankerung an einem Punkt (Mausposition) — der Punkt unter dem Cursor bleibt stehen
+function zoomPanoAtPoint(newZoom,clientX,clientY){
+  var strip=$('pano-strip'),el=$('pano-container'); if(!strip||!el)return;
+  var rect=el.getBoundingClientRect();
+  var xc=(clientX==null?rect.width/2:clientX-rect.left);
+  var yc=(clientY==null?rect.height/2:clientY-rect.top);
+  var hwOld=strip.scrollWidth/2, Hold=S.panoZoom*rect.height;
+  var fY=Hold>0?(yc-S.panoVOff)/Hold:0.5;
+  S.panoZoom=clampZoom(newZoom);
+  strip.style.height=(S.panoZoom*100)+'%'; // Höhe sofort setzen, damit scrollWidth stimmt
+  var hwNew=strip.scrollWidth/2, Hnew=S.panoZoom*rect.height;
+  if(hwOld&&hwNew) S.panoAngle += xc*360*(1/hwOld-1/hwNew); // horizontal verankern
+  S.panoVOff = yc - fY*Hnew;                                  // vertikal verankern
+  updatePanoZoom(); updatePano();
+}
+function rotatePanoByPixels(px){
   var strip=$('pano-strip'); if(!strip)return;
-  strip.style.height=(S.panoZoom*100)+'%'; strip.style.marginTop=((1-S.panoZoom)/2*100)+'%';
+  var hw=strip.scrollWidth/2; if(!hw)return;
+  S.panoAngle+=px/(hw/S.panoZoom)*360; updatePano();
 }
 
 function initPanoDrag(){
-  var pc=$('pano-container'); if(pc)pc.style.overflow='visible';
-  var ps=$('pano-strip'); if(ps)ps.style.overflow='visible';
+  var pc=$('pano-container'); if(pc)pc.style.overflow='hidden';
+  var ps=$('pano-strip'); if(ps)ps.style.overflow='hidden';
   var el=$('pano-container');
   el.onmousedown=function(e){
     if(e.button!==0)return;
@@ -565,14 +598,45 @@ function initPanoDrag(){
     updatePano();
   };
   window.onmouseup=function(){S.isDragging=false;el.style.cursor='grab';};
-  el.ontouchstart=function(e){resumeAC();S.isDragging=true;S.dragStartX=e.touches[0].clientX;S.dragStartAngle=S.panoAngle;};
+  // Touch: 1 Finger = drehen, 2 Finger = zoomen (Pinch) + drehen
+  var pinch=null; // {dist, zoom, midX, angle}
+  function touchDist(t){var dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
+  el.ontouchstart=function(e){
+    resumeAC();
+    if(e.touches.length>=2){
+      S.isDragging=false;
+      pinch={dist:touchDist(e.touches),zoom:S.panoZoom,midX:(e.touches[0].clientX+e.touches[1].clientX)/2,angle:S.panoAngle};
+      e.preventDefault();
+    } else {
+      pinch=null; S.isDragging=true; S.dragStartX=e.touches[0].clientX; S.dragStartAngle=S.panoAngle;
+    }
+  };
   el.ontouchmove=function(e){
+    if(pinch&&e.touches.length>=2){
+      var d=touchDist(e.touches); if(pinch.dist>0)S.panoZoom=clampZoom(pinch.zoom*(d/pinch.dist));
+      var _ch=$('pano-container').clientHeight; S.panoVOff=-(S.panoZoom-1)*_ch/2; // vertikal zentriert halten
+      updatePanoZoom();
+      var mid=(e.touches[0].clientX+e.touches[1].clientX)/2,hw=$('pano-strip').scrollWidth/2;
+      if(hw)S.panoAngle=pinch.angle-(mid-pinch.midX)/(hw/S.panoZoom)*360;
+      updatePano(); e.preventDefault(); return;
+    }
     if(!S.isDragging)return;
-    var hw=$('pano-strip').scrollWidth/2;
-    if(hw) S.panoAngle=S.dragStartAngle-(e.touches[0].clientX-S.dragStartX)/(hw/S.panoZoom)*360;
+    var hw2=$('pano-strip').scrollWidth/2;
+    if(hw2) S.panoAngle=S.dragStartAngle-(e.touches[0].clientX-S.dragStartX)/(hw2/S.panoZoom)*360;
     updatePano(); e.preventDefault();
   };
-  el.ontouchend=function(){S.isDragging=false;};
+  el.ontouchend=function(e){if(!e.touches||e.touches.length<2)pinch=null;if(!e.touches||e.touches.length===0)S.isDragging=false;};
+  // Wheel/Trackpad: seitwärts (2 Finger) = drehen, vertikal/Pinch = zoomen
+  el.addEventListener('wheel',function(e){
+    resumeAC();
+    if(e.ctrlKey){ // Trackpad-Pinch / Browser-Zoom-Geste → an Cursor zoomen
+      zoomPanoAtPoint(S.panoZoom*(1-e.deltaY*0.012),e.clientX,e.clientY); e.preventDefault(); return;
+    }
+    if(Math.abs(e.deltaX)>Math.abs(e.deltaY)){ rotatePanoByPixels(e.deltaX); e.preventDefault(); return; }
+    if(e.shiftKey){ rotatePanoByPixels(e.deltaY); e.preventDefault(); return; }
+    // vertikal = zoomen (Maus-Rad) → an Cursor zoomen
+    zoomPanoAtPoint(S.panoZoom*(1-e.deltaY*0.0015),e.clientX,e.clientY); e.preventDefault();
+  },{passive:false});
   el.style.cursor='grab';
   setTimeout(function(){var h=$('drag-hint');if(h)h.style.opacity='0';},3500);
 }
@@ -634,7 +698,7 @@ function resetBaseState(){
   S.round=0; S.score=0; S.roundScores=[]; S.skippedLocations=new Set();
   S.expanded=false; S.vsLeftShown=false; S.survivalEliminated=false;
   $('map-panel').classList.remove('expanded');
-  S.guessLatLng=null; S.panoAngle=0; S.panoZoom=1;
+  S.guessLatLng=null; S.panoAngle=0; S.panoZoom=1; S.panoVOff=0;
   $('score-display').textContent='0';
   $('score-verdict').classList.remove('in'); $('score-verdict').textContent='';
   $('vs-bottom-wait').classList.remove('show'); $('vs-left-msg').classList.remove('show');
@@ -665,12 +729,46 @@ function startSolo(){
 }
 
 function startSurvival(){
-  resetScoreSavedUI(); resumeAC(); sfx.start(); S.mode='survival'; S.roundsTotal=SURVIVAL_ROUNDS;
+  resetScoreSavedUI(); resumeAC(); S.mode='survival'; S.roundsTotal=SURVIVAL_ROUNDS;
   var hb=$('back-to-home-btn'); if(hb)hb.style.display='block';
   resetBaseState(); S.isVs=false;
   if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}
   S.locations=shuffle(LOCATIONS.slice()).slice(0,SURVIVAL_ROUNDS);
   $('vs-badge').style.display='none'; $('vs-strip').style.display='none'; $('round-total').textContent=SURVIVAL_ROUNDS;
+  showSurvivalExplain();
+}
+
+// Erklär-Overlay vor der ersten Runde — Regeln + satter Auftakt
+function showSurvivalExplain(){
+  var ov=$('survival-explain-overlay'); if(!ov){beginSurvivalRounds();return;}
+  // Alle Texte kommen aus text.js (T)
+  if(typeof T!=='undefined'){
+    var card=ov.querySelector('.se-card');
+    var b=card.querySelector('.se-badge'); if(b)b.textContent=T.survivalExplainBadge;
+    var ti=card.querySelector('.se-title'); if(ti)ti.textContent=T.survivalExplainTitle;
+    var st=card.querySelector('.se-start'); if(st)st.textContent=T.survivalExplainStart;
+    var rulesEl=card.querySelector('.se-rules');
+    if(rulesEl&&T.survivalExplainRules){
+      rulesEl.innerHTML='';
+      var first=fmtN(getSurvivalThreshold(0)), last=fmtN(getSurvivalThreshold(SURVIVAL_ROUNDS-1));
+      T.survivalExplainRules.forEach(function(r){
+        var html=String(r.html).replace('{first}',first).replace('{last}',last);
+        var d=document.createElement('div'); d.className='se-rule';
+        d.innerHTML='<span class="se-ico">'+r.icon+'</span><div>'+html+'</div>';
+        rulesEl.appendChild(d);
+      });
+    }
+  }
+  var svg=$('se-flames-svg'); if(svg)buildFlamesSVG(svg,18);
+  addEmbers($('se-embers'),18);
+  ov.classList.remove('show'); void ov.offsetWidth; ov.classList.add('show');
+  if(sfx&&sfx.survivalIntro)sfx.survivalIntro(1);
+  if(ov._emberTimer)clearInterval(ov._emberTimer);
+  ov._emberTimer=setInterval(function(){if(ov.classList.contains('show'))addEmbers($('se-embers'),6);else clearInterval(ov._emberTimer);},1400);
+}
+function beginSurvivalRounds(){
+  var ov=$('survival-explain-overlay'); if(ov){ov.classList.remove('show');if(ov._emberTimer)clearInterval(ov._emberTimer);}
+  resumeAC(); sfx.start();
   show('game-screen'); initPanoDrag(); loadRound();
 }
 
@@ -940,13 +1038,21 @@ function showFinal(){
   $('play-again-btn').style.display=S.mode==='daily'?'none':'';
   $('share-btn').style.display='block'; resetScoreSavedUI();
   if(S.mode==='survival')launchConfetti(120);
+  hideRankPanel();
+  var soloRanked=(S.mode==='solo'&&S.isLoggedIn&&!S.isVs);
   setTimeout(function(){
+    if(soloRanked){
+      // Highscore wird kontoabhängig im Rang-Panel geprüft (kein false-positive mehr)
+      countUp($('final-score-num'),S.score,1200);
+      showRankPanelAndCelebrate();
+      return;
+    }
     var hsKey='wg_hs_'+S.mode,prevHs=0;
     try{prevHs=parseInt(localStorage.getItem(hsKey)||'0');}catch(e){}
     var isNewHs=(S.score>0&&S.score>prevHs&&!S.isVs&&S.mode!=='daily');
     if(isNewHs){try{localStorage.setItem(hsKey,String(S.score));}catch(e){}}
     countUp($('final-score-num'),S.score,1200,function(){
-      if(isNewHs){launchConfetti(130);sfx.amazing();var b=$('new-highscore-banner');if(b){b.classList.add('show');setTimeout(function(){b.classList.remove('show');},4000);}}
+      if(isNewHs){triggerHighscoreCelebration();}
     });
   },300);
   var bd=$('final-breakdown'); bd.innerHTML='';
@@ -962,12 +1068,154 @@ function showFinal(){
   });
   if(S.isVs)showVsFinalResult();
   if(S.mode==='daily')updateStreak(S.dailyKey);
-  if(S.isLoggedIn&&!S.hasSavedThisRun){
+  if(S.isLoggedIn&&!S.hasSavedThisRun&&!soloRanked){
+    // soloRanked speichert erst im Rang-Panel (nach Erfassen des alten Stands)
     S.pendingSaveTarget=S.mode==='daily'?'daily':'global';
     setTimeout(function(){autoSaveLoggedInUser();},800);
   }
   updateSaveBtnVisibility();
   setTimeout(afterFinalExtras,500);
+}
+
+// ── End-of-round Rang-Panel (Solo, eingeloggt) ──
+function playRattle(dur,from,to){
+  if(typeof VOL!=='undefined'&&VOL===0)return;
+  dur=dur||0.7;
+  var n=Math.max(8,Math.round(dur/0.026));
+  for(var i=0;i<n;i++){
+    var p=i/n;
+    // sauberes mechanisches "drrr" — kurze Klicks, steigende Tonhöhe
+    tone(340+p*240+(Math.random()*30-15),'square',0.015,0.04*(0.55+0.45*(1-p)),0,i*(dur/n));
+  }
+}
+function rankCountUp(el,from,to,dur,onDone){
+  dur=dur||1000;
+  if(to<=from){el.textContent=fmtN(to);onDone&&onDone();return;}
+  playRattle(dur/1000);
+  var start=performance.now();
+  (function f(now){
+    var t=Math.min((now-start)/dur,1),e=1-Math.pow(1-t,3),cur=Math.round(from+e*(to-from));
+    el.textContent=fmtN(cur);
+    t<1?requestAnimationFrame(f):(el.textContent=fmtN(to),onDone&&onDone());
+  })(performance.now());
+}
+function triggerHighscoreCelebration(){
+  launchConfetti(130); if(sfx&&sfx.amazing)sfx.amazing();
+  var b=$('new-highscore-banner'); if(b){b.classList.add('show');setTimeout(function(){b.classList.remove('show');},4000);}
+}
+function rankMedal(rank){return rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;}
+function buildRankSlot(entry,rank,opts){
+  opts=opts||{};
+  var div=document.createElement('div');
+  div.className='rank-slot'+(opts.me?' me':'')+(rank<=3?' podium':'');
+  div.setAttribute('data-rank',rank);
+  var ptsShown=(opts.me&&typeof opts.startPts==='number')?opts.startPts:entry.score;
+  div.innerHTML='<span class="rank-num">'+rankMedal(rank)+'</span>'
+    +'<span class="rank-name">'+escHtml(entry.name)+(opts.me?'<span class="rank-you">DU</span>':'')+'</span>'
+    +'<span class="rank-pts">'+fmtN(ptsShown)+'</span>';
+  return div;
+}
+
+function hideRankPanel(){var p=$('rank-panel');if(p)p.classList.remove('show','animating');}
+
+async function showRankPanelAndCelebrate(){
+  var panel=$('rank-panel'); if(!panel)return;
+  var meKey=(S.loggedInName||'').toLowerCase(); if(!meKey)return;
+  var rowsEl=panel.querySelector('.rank-rows'),jumpEl=panel.querySelector('.rank-jump'),noteEl=panel.querySelector('.rank-note');
+  rowsEl.innerHTML=''; jumpEl.innerHTML=''; jumpEl.classList.remove('show'); noteEl.textContent=''; noteEl.classList.remove('show');
+  panel.classList.remove('show','animating');
+
+  var rows;
+  try{ rows=await sbFetch('wels_scores?select=name,score&order=score.desc&limit=500'); }
+  catch(e){ rows=null; }
+  // Lauf jetzt speichern (Stand wurde oben bereits erfasst → kein Doppelzählen)
+  if(!S.hasSavedThisRun){ S.pendingSaveTarget='global'; autoSaveLoggedInUser(); }
+  if(!rows){ return; }
+
+  var best={};
+  rows.forEach(function(r){ if(!r.name)return; var k=r.name.toLowerCase(); if(!best[k]||r.score>best[k].score)best[k]={name:r.name,score:r.score}; });
+  var myOldBest=best[meKey]?best[meKey].score:0;
+  var oldArr=Object.keys(best).map(function(k){return best[k];}).sort(function(a,b){return b.score-a.score;});
+  var oldIdx=-1; for(var i=0;i<oldArr.length;i++){ if(oldArr[i].name.toLowerCase()===meKey){oldIdx=i;break;} }
+  var oldRank=oldIdx<0?oldArr.length+1:oldIdx+1;
+
+  var newScore=S.score, newBest=Math.max(myOldBest,newScore), isNewHs=newScore>myOldBest;
+  if(isNewHs){try{localStorage.setItem('wg_hs_'+S.mode,String(newBest));}catch(e){}}
+
+  var nb={}; Object.keys(best).forEach(function(k){ nb[k]={name:best[k].name,score:best[k].score}; });
+  nb[meKey]={name:S.loggedInName,score:newBest};
+  var newArr=Object.keys(nb).map(function(k){return nb[k];}).sort(function(a,b){return b.score-a.score;});
+  var newIdx=0; for(var j=0;j<newArr.length;j++){ if(newArr[j].name.toLowerCase()===meKey){newIdx=j;break;} }
+  var newRank=newIdx+1;
+  var overtaken=Math.max(0,oldRank-newRank);
+
+  // sichtbare Reihen aufbauen
+  var aboveEntry=newArr[newIdx-1]||null;
+  var meEntry=newArr[newIdx];
+  var maxBelow=overtaken>0?Math.min(overtaken,3):1;
+  var belowEntries=newArr.slice(newIdx+1,newIdx+1+maxBelow);
+
+  var aboveSlot=aboveEntry?buildRankSlot(aboveEntry,newRank-1,{}):null;
+  var meSlot=buildRankSlot(meEntry,newRank,{me:true,startPts:isNewHs?myOldBest:newBest});
+  var belowSlots=belowEntries.map(function(e,k){return buildRankSlot(e,newRank+1+k,{});});
+
+  if(aboveSlot)rowsEl.appendChild(aboveSlot);
+  rowsEl.appendChild(meSlot);
+  belowSlots.forEach(function(s){rowsEl.appendChild(s);});
+
+  // Panel einblenden (setTimeout statt rAF → läuft auch zuverlässig wenn Tab kurz inaktiv)
+  setTimeout(function(){panel.classList.add('show');},30);
+
+  var doOvertake=isNewHs&&overtaken>0&&belowSlots.length>0;
+  var mePtsEl=meSlot.querySelector('.rank-pts');
+  // Namen der überholten Spieler (alte Plätze newRank..oldRank-1)
+  var overtakenNames=oldArr.slice(newRank-1,oldRank-1).map(function(e){return e.name;});
+  function buildOvertakeText(names){
+    if(!names.length)return '';
+    if(names.length===1)return 'Du hast <b>'+escHtml(names[0])+'</b> überholt!';
+    if(names.length===2)return 'Du hast <b>'+escHtml(names[0])+'</b> und <b>'+escHtml(names[1])+'</b> überholt!!';
+    return 'Du hast <b>'+escHtml(names[0])+'</b>, <b>'+escHtml(names[1])+'</b> und <b>'+(names.length-2)+' weitere</b> überholt!!';
+  }
+
+  function runCountAndCelebrate(){
+    if(isNewHs){
+      meSlot.classList.add('hs');
+      rankCountUp(mePtsEl,myOldBest,newBest,Math.min(1600,700+Math.abs(newBest-myOldBest)/8),function(){
+        setTimeout(triggerHighscoreCelebration,120);
+      });
+    }
+    if(overtaken>0){
+      jumpEl.innerHTML='<span class="rank-jump-from">#'+oldRank+'</span><span class="rank-jump-arrow">→</span><span class="rank-jump-to">#'+newRank+'</span>';
+      setTimeout(function(){jumpEl.classList.add('show');},isNewHs?450:200);
+      var ot=$('rank-panel').querySelector('.rank-overtake');
+      if(ot&&overtakenNames.length){ot.innerHTML=buildOvertakeText(overtakenNames);setTimeout(function(){ot.classList.add('show');},isNewHs?1050:700);}
+    } else if(isNewHs){
+      noteEl.textContent='Neuer persönlicher Rekord · Platz '+newRank;
+      setTimeout(function(){noteEl.classList.add('show');},400);
+    } else {
+      noteEl.textContent='Diese Runde: '+fmtN(newScore)+' · Dein Rekord: '+fmtN(newBest);
+      setTimeout(function(){noteEl.classList.add('show');},300);
+    }
+  }
+
+  if(doOvertake){
+    // FLIP: "Du" wird unten aufgenommen, gedreht, und langsam nach oben einsortiert;
+    // überholte Slots werden sichtbar nach unten geschoben
+    var rh=meSlot.getBoundingClientRect().height+8;
+    meSlot.classList.add('lifting');
+    meSlot.style.transform='translate(10px,'+(belowSlots.length*rh)+'px) rotate(-5deg) scale(1.06)';
+    belowSlots.forEach(function(s){s.style.transform='translateY('+(-rh)+'px)';});
+    // länger "aufgenommen" halten, damit man den Sprung sieht, dann gemächlich einsortieren
+    setTimeout(function(){
+      panel.classList.add('animating');
+      meSlot.classList.add('dropping');
+      meSlot.style.transform='';
+      belowSlots.forEach(function(s){s.classList.add('pushed');s.style.transform='';});
+      setTimeout(function(){meSlot.classList.remove('lifting','dropping');runCountAndCelebrate();},1150);
+    },780);
+  } else {
+    runCountAndCelebrate();
+  }
 }
 
 // ── Share ──
@@ -1085,9 +1333,25 @@ async function loadLeaderboardData(){
       rowEl.innerHTML=rankLabel+'<span class="lb-name"'+nameAttr+'>'+escHtml(r.name)+multiHint+'</span><span class="lb-score">'+fmtN(r.score)+'</span><span class="lb-date" data-time="'+timeStr+'">'+date+'</span>'+profBtn;
       if(realName){
         (function(nameEl,spitz,hint,full){
-          nameEl.addEventListener('mouseenter',function(){nameEl.innerHTML=escHtml(full);nameEl.classList.add('lb-realname-shown');});
-          nameEl.addEventListener('mouseleave',function(){nameEl.innerHTML=spitz+hint;nameEl.classList.remove('lb-realname-shown');});
+          if(IS_TOUCH){
+            nameEl.classList.add('lb-name-tappable');
+            nameEl.addEventListener('click',function(ev){
+              ev.stopPropagation();
+              var shown=nameEl.classList.contains('lb-realname-shown');
+              if(shown){nameEl.innerHTML=spitz+hint;nameEl.classList.remove('lb-realname-shown');}
+              else{nameEl.innerHTML=escHtml(full);nameEl.classList.add('lb-realname-shown');}
+            });
+          } else {
+            nameEl.addEventListener('mouseenter',function(){nameEl.innerHTML=escHtml(full);nameEl.classList.add('lb-realname-shown');});
+            nameEl.addEventListener('mouseleave',function(){nameEl.innerHTML=spitz+hint;nameEl.classList.remove('lb-realname-shown');});
+          }
         })(rowEl.querySelector('.lb-name'),escHtml(r.name),multiHint,realName);
+      }
+      if(IS_TOUCH){
+        (function(dateEl,dStr,tStr){
+          if(!dateEl||!tStr)return;
+          dateEl.addEventListener('click',function(ev){ev.stopPropagation();dateEl.textContent=(dateEl.textContent===tStr)?dStr:tStr;});
+        })(rowEl.querySelector('.lb-date'),date,timeStr);
       }
       if(lbAdminMode){
         var rn=r.name;
@@ -1343,13 +1607,26 @@ async function saveScore(){
   S.pendingSaveTarget=S.mode==='daily'?'daily':'global';openLoginModal();
 }
 
+// Daily-Score speichern: erst RPC versuchen, bei Fehler direkter Insert als Fallback.
+async function submitDailyScore(name){
+  var deviceId=getOrCreateDeviceId();
+  try{
+    var res=await sbFetch('rpc/submit_wels_daily_score','POST',{p_name:name,p_score:S.score,p_date_key:S.dailyKey,p_device_id:deviceId});
+    if(res&&res.ok)return {ok:true};
+    if(res&&res.error)return {ok:false,error:res.error};
+  }catch(e){ /* RPC kaputt → Fallback */ }
+  try{
+    await sbFetch('wels_daily_scores','POST',{name:name,score:S.score,date_key:S.dailyKey,device_id:deviceId,created_at:new Date().toISOString()});
+    return {ok:true,fallback:true};
+  }catch(e2){ return {ok:false,error:(e2&&e2.code==='23505')?'ALREADY_PLAYED_TODAY':'INSERT_FAILED'}; }
+}
+
 async function autoSaveLoggedInUser(){
   if(S.hasSavedThisRun)return;
   var session=loadSession();if(!session.name||!session.pwHash){saveScore();return;}
   try{
     if(S.pendingSaveTarget==='daily'){
-      var deviceId=getOrCreateDeviceId();
-      var res=await sbFetch('rpc/submit_wels_daily_score','POST',{p_name:session.name,p_score:S.score,p_date_key:S.dailyKey,p_device_id:deviceId});
+      var res=await submitDailyScore(session.name);
       if(!res||!res.ok){if(res&&res.error==='ALREADY_PLAYED_TODAY'){markDailyPlayedLocally(S.dailyKey);markScoreSavedUI();}return;}
       markDailyPlayedLocally(S.dailyKey);markScoreSavedUI();updateDailyPlayAvailability();return;
     }
@@ -1376,8 +1653,7 @@ async function submitScore(){
       else{if(existing[0].pw_hash!==inputHash){$('save-error').textContent='Falsches Passwort.';$('save-submit-btn').disabled=false;return;}saveSession(existing[0].name,inputHash);refreshAuthUI();name=existing[0].name;}
     }
     if(S.pendingSaveTarget==='daily'){
-      var deviceId=getOrCreateDeviceId();
-      var res=await sbFetch('rpc/submit_wels_daily_score','POST',{p_name:name,p_score:S.score,p_date_key:S.dailyKey,p_device_id:deviceId});
+      var res=await submitDailyScore(name);
       if(!res||!res.ok){$('save-error').textContent=(res&&res.error==='ALREADY_PLAYED_TODAY')?'Du hast die Daily heute auf diesem Gerät schon gespielt.':'Fehler beim Speichern.';$('save-submit-btn').disabled=false;return;}
       markDailyPlayedLocally(S.dailyKey);closeModal('save-modal');markScoreSavedUI();await loadDailyBoard();updateDailyPlayAvailability();show('daily-screen');return;
     }
@@ -1441,13 +1717,17 @@ async function loadDailyBoard(){
     if(!rows||!rows.length){boardEl.innerHTML='<div style="font-size:.72rem;color:var(--mist);text-align:center;padding:1.2rem">Heute noch keine Einträge.</div>';return;}
     var medals=['🥇','🥈','🥉'];
     rows.forEach(function(r,i){
-      var div=document.createElement('div');div.className='lb-row';
-      var rank=i<3?'<span class="lb-rank gold">'+medals[i]+'</span>':'<span class="lb-rank">'+(i+1)+'</span>';
-      var d=new Date(r.created_at),date=fmtDate(d),time=d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'});
-      div.innerHTML=rank+'<span class="lb-name">'+escHtml(r.name)+'</span><span class="lb-score">'+fmtN(r.score)+'</span><span class="lb-date" data-time="'+time+'">'+date+'</span>';
-      boardEl.appendChild(div);setTimeout(function(el){return function(){el.classList.add('in');};}(div),i*45);
+      try{
+        var div=document.createElement('div');div.className='lb-row';
+        var rank=i<3?'<span class="lb-rank gold">'+medals[i]+'</span>':'<span class="lb-rank">'+(i+1)+'</span>';
+        var d=r.created_at?new Date(r.created_at):null;
+        var valid=d&&!isNaN(d.getTime());
+        var date=valid?fmtDate(d):'—', time=valid?d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'}):'';
+        div.innerHTML=rank+'<span class="lb-name">'+escHtml(r.name||'—')+'</span><span class="lb-score">'+fmtN(r.score||0)+'</span><span class="lb-date" data-time="'+time+'">'+date+'</span>';
+        boardEl.appendChild(div);setTimeout(function(el){return function(){el.classList.add('in');};}(div),i*45);
+      }catch(rowErr){console.error('[daily-board row]',rowErr);}
     });
-  }catch(e){boardEl.innerHTML='<div style="font-size:.72rem;color:#e8826a;text-align:center;padding:1.2rem">Fehler beim Laden.</div>';}
+  }catch(e){console.error('[daily-board]',e);boardEl.innerHTML='<div style="font-size:.72rem;color:#e8826a;text-align:center;padding:1.2rem">Fehler beim Laden.</div>';}
 }
 
 // ── Home ──
@@ -1656,7 +1936,7 @@ function startVsPoll(){
       var myPAV=S.vsIsHost?r.host_play_again_voted:r.guest_play_again_voted,theirPAV=S.vsIsHost?r.guest_play_again_voted:r.host_play_again_voted;
       if(myPAV&&theirPAV&&$('final-screen').classList.contains('active'))doPlayAgain();
     }catch(e){}
-  },2500);
+  },1800);
 }
 
 function showVsLeftMessage(name){
@@ -1684,7 +1964,7 @@ function startSpectatePoll(){
       }
       if(!S.vsTheirDone){var cur=r[theirCursorKey],ang=r[theirAngleKey]||0;if(cur)updateSpecCursor(cur,ang);}
     }catch(e){}
-  },1200);
+  },900);
 }
 function stopSpectatePoll(){if(S.vsSpecPollInterval){clearInterval(S.vsSpecPollInterval);S.vsSpecPollInterval=null;}$('spec-cursor').style.display='none';$('spec-cursor-label').style.display='none';}
 
@@ -1798,8 +2078,32 @@ function updateVsStrip(){
 
 function showVsFinalResult(){
   var my=S.score,their=(S.vsTheirScores||[]).reduce(function(a,b){return a+b;},0);
-  $('vs-result-box').classList.add('show');$('vs-final-you').textContent=S.vsMyName+': '+fmtN(my);$('vs-final-them').textContent=S.vsTheirName+': '+fmtN(their);
-  if(my>their)$('vs-winner-text').textContent='Du gewinnst! 🏆';else if(their>my)$('vs-winner-text').textContent=S.vsTheirName+' gewinnt.';else $('vs-winner-text').textContent='Unentschieden.';
+  var box=$('vs-result-box'); box.classList.add('show');
+  var wt=$('vs-winner-text');
+  if(my>their){wt.textContent='Du gewinnst! 🏆';wt.className='vs-winner win';}
+  else if(their>my){wt.textContent=S.vsTheirName+' gewinnt 🏆';wt.className='vs-winner lose';}
+  else{wt.textContent='Unentschieden 🤝';wt.className='vs-winner tie';}
+  $('vs-final-you').textContent=(S.vsMyName||'Du')+' · '+fmtN(my);
+  $('vs-final-them').textContent=(S.vsTheirName||'Gegner')+' · '+fmtN(their);
+  // Runde-für-Runde Aufschlüsselung (lesbarer)
+  var rc=$('vs-rounds');
+  if(rc){
+    rc.innerHTML='';
+    var theirs=S.vsTheirScores||[], n=Math.max(S.roundScores.length,theirs.length);
+    var head=document.createElement('div'); head.className='vs-round-row vs-round-head';
+    head.innerHTML='<span class="vrr-you">Du</span><span class="vrr-lbl"></span><span class="vrr-them">'+escHtml(S.vsTheirName||'Gegner')+'</span>';
+    rc.appendChild(head);
+    for(var i=0;i<n;i++){
+      var mp=S.roundScores[i]?S.roundScores[i].pts:null, tp=(i<theirs.length)?theirs[i]:null;
+      var youWon=(mp!=null&&tp!=null&&mp>tp), themWon=(mp!=null&&tp!=null&&tp>mp);
+      var row=document.createElement('div'); row.className='vs-round-row';
+      row.innerHTML='<span class="vrr-you'+(youWon?' w':'')+'">'+(mp==null?'—':fmtN(mp))+(youWon?' ▸':'')+'</span>'
+        +'<span class="vrr-lbl">R'+(i+1)+'</span>'
+        +'<span class="vrr-them'+(themWon?' w':'')+'">'+(themWon?'◂ ':'')+(tp==null?'—':fmtN(tp))+'</span>';
+      rc.appendChild(row);
+      setTimeout(function(el){return function(){el.classList.add('in');};}(row),120+i*90);
+    }
+  }
   if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}$('play-again-vote').style.display='none';if(S.vsIsHost)setTimeout(cleanupRoom,5000);
 }
 
@@ -1815,6 +2119,7 @@ async function cleanupStaleRooms(){try{var cutoff=new Date(Date.now()-2*60*60*10
 document.addEventListener('keydown',function(e){
   if(e.code==='Space'||e.key===' '){
     if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;e.preventDefault();
+    if($('survival-explain-overlay')&&$('survival-explain-overlay').classList.contains('show'))return;
     if($('survival-intro-overlay').classList.contains('show'))return;
     if($('survival-score-overlay').classList.contains('show'))return;
     if($('survival-fail-overlay').classList.contains('show'))return;
@@ -1835,7 +2140,7 @@ function goHomeFromGame(){
   if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}
   if(S.heartbeatInterval){clearInterval(S.heartbeatInterval);S.heartbeatInterval=null;}
   stopSpectatePoll();clearNextVoteTimers();if(S.vsRoom&&S.isVs)cleanupRoom();S.isVs=false;S.vsRoom=null;
-  $('survival-fail-overlay').classList.remove('show');$('survival-intro-overlay').classList.remove('show');$('survival-score-overlay').classList.remove('show');
+  $('survival-fail-overlay').classList.remove('show');$('survival-intro-overlay').classList.remove('show');$('survival-score-overlay').classList.remove('show');var _seo=$('survival-explain-overlay');if(_seo)_seo.classList.remove('show');
   show('start-screen');renderStreakDisplay('streak-display-start');
 }
 
@@ -1953,7 +2258,7 @@ var ACHIEVEMENTS=[
   {key:'streak_30',icon:'👑',title:'Wels-Legende',desc:'30 Tage in Folge gespielt'},
   {key:'score_10k',icon:'⭐',title:'Über 10.000',desc:'10.000+ Punkte in einem Spiel'},
   {key:'score_20k',icon:'🌟',title:'Über 20.000',desc:'20.000+ Punkte in einem Spiel'},
-  {key:'score_25k',icon:'🏆',title:'Maximale Leistung',desc:'25.000 Punkte — perfektes Spiel'},
+  {key:'score_25k',icon:'🏆',title:'Maximale Leistung',desc:'25.000 Punkte für ein perfektes Spiel'},
   {key:'survival_win',icon:'🌋',title:'Überlebt!',desc:'Alle 12 Hitzewelle-Runden bestanden'},
   {key:'daily_10',icon:'📅',title:'Stammgast',desc:'10 Daily Challenges gespielt'}
 ];
@@ -2023,7 +2328,7 @@ function _playAchievementSound(){
 // K-Taste: Test-Achievement (zählt nicht, wird nicht gespeichert)
 document.addEventListener('keydown',function(e){
   if(e.key==='k'||e.key==='K'){
-    showAchievementToast({icon:'🧪',title:'Test-Achievement',desc:'Nur zum Ausprobieren — zählt nicht!'});
+    showAchievementToast({icon:'🧪',title:'Test-Achievement',desc:'Nur zum Ausprobieren, zählt nicht!'});
   }
 });
 

@@ -86,6 +86,17 @@ const T = {
   survivalRoundLabel:     'Runde',
   survivalThresholdLabel: 'Zielpunkte',
 
+  // hitzewelle erklärung (intro overlay) — {first}/{last} werden mit den Schwellen ersetzt
+  survivalExplainBadge: '🔥 Hitzewelle',
+  survivalExplainTitle: 'Überlebe die Hitze.',
+  survivalExplainRules: [
+    { icon: '📍', html: '<b>12 Runden</b>, jede mit einem neuen Spot.' },
+    { icon: '📈', html: 'Die <b>Mindestpunktzahl steigt</b> jede Runde, von <b>{first}</b> auf <b>{last}</b>.' },
+    { icon: '💀', html: 'Schaffst du die Schwelle nicht, bist du <b>raus</b>.' },
+    { icon: '🏆', html: 'Wie weit kommst du?' }
+  ],
+  survivalExplainStart: "Los geht's 🔥",
+
   // hallo
   finalTitleSolo:     'Spiel beendet',
   finalTitleVs:       'Spiel beendet',

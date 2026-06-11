@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -36,6 +36,18 @@
     <div id="survival-intro-divider"></div>
     <div id="survival-intro-threshold-label">Mindestpunkte diese Runde</div>
     <div id="survival-intro-threshold-num">500</div>
+  </div>
+</div>
+
+<!-- SURVIVAL EXPLAIN / INTRO OVERLAY -->
+<div id="survival-explain-overlay">
+  <div id="se-embers"></div>
+  <div id="se-flames"><svg id="se-flames-svg" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg></div>
+  <div class="se-card">
+    <div class="se-badge"></div>
+    <h2 class="se-title"></h2>
+    <div class="se-rules"></div>
+    <button class="big-btn primary se-start" id="se-start-btn" onclick="beginSurvivalRounds()"></button>
   </div>
 </div>
 
@@ -197,7 +209,7 @@
       <div class="menu-card-left">
         <div id="survival-neu-badge" class="survival-badge">Neu</div>
         <div class="menu-card-title">Hitzewelle</div>
-        <div class="menu-card-sub">12 Runden, steigende Schwellen.<br>Bleib über dem Limit — oder du bist raus.</div>
+        <div class="menu-card-sub">12 Runden, steigende Schwellen.<br>Bleib über dem Limit, sonst bist du raus.</div>
       </div>
       <div class="menu-card-right">
         <button class="menu-card-cta ember" onclick="startSurvival();event.stopPropagation()">Durchhalten →</button>
@@ -361,8 +373,8 @@
       <p>Panorama nicht verfügbar.<br>Lade nächsten Standort…</p>
       <button class="big-btn" style="font-size:.72rem;padding:.7rem 1rem" onclick="skipToNextLocation()">Weiter</button>
     </div>
-    <div class="pano-hint" id="drag-hint">ziehen zum Umsehen · scrollen zum Zoomen</div>
-    <div id="compass">N</div>
+    <div class="pano-hint" id="drag-hint">ziehen oder seitwärts wischen zum Umsehen · scrollen/pinchen zum Zoomen</div>
+    <div id="compass" title="Blickrichtung"><span class="compass-needle">▲</span><span id="compass-dir">N</span></div>
     <button id="vol-btn" onclick="cycleVolume()">🔊 <span id="vol-label">100%</span></button>
   </div>
   <div id="map-panel">
@@ -429,6 +441,13 @@
 
 <!-- FINAL -->
 <div class="screen" id="final-screen">
+  <div id="rank-panel">
+    <div class="rank-panel-head"><span class="rank-panel-dot"></span>Bestenliste</div>
+    <div class="rank-rows"></div>
+    <div class="rank-jump"></div>
+    <div class="rank-overtake"></div>
+    <div class="rank-note"></div>
+  </div>
   <div class="final-title" id="final-title">Spiel beendet</div>
   <div>
     <div class="final-score-big" id="final-score-num">0</div>
@@ -441,6 +460,7 @@
       <div class="vs-sep">vs</div>
       <div class="them" id="vs-final-them">—</div>
     </div>
+    <div class="vs-rounds" id="vs-rounds"></div>
   </div>
   <div class="final-breakdown" id="final-breakdown"></div>
   <div id="play-again-vote"></div>
@@ -554,9 +574,9 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=2"></script>
-<script src="text.js?v=1"></script>
-<script src="script.js?v=9"></script>
-<script src="patches.js?v=8"></script>
+<script src="text.js?v=2"></script>
+<script src="script.js?v=14"></script>
+<script src="patches.js?v=10"></script>
 <!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">
   <div class="modal changelog-modal-inner" id="changelog-modal-inner">
