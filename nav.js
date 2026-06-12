@@ -4,9 +4,9 @@
 (function () {
   'use strict';
 
-  var MAX_LINK_DIST = 22;   // m: max Distanz für einen Nachbar-Pfeil
-  var MIN_ARROW_SEP = 10;   // Grad: min Winkelabstand zwischen Pfeilen
-  var MAX_ARROWS    = 3;    // max Pfeile gleichzeitig
+  var MAX_LINK_DIST = 35;   // m: max Distanz für einen Nachbar-Pfeil
+  var MIN_ARROW_SEP = 0;   // Grad: min Winkelabstand zwischen Pfeilen
+  var MAX_ARROWS    = 4;    // max Pfeile gleichzeitig
   var MIN_DIST_FLOOR = 2;   // m: darunter gleiches Pano (dedupe)
 
   // planare Näherung, reicht auf Straßen-Skala
