@@ -1,1 +1,10 @@
+# Dev-Tools (enthalten u.a. den Google-API-Key) — nie committen
+_dev/*.py
 
+# Lokale data.js-Backups
+data.js.bak
+data.js.bak*
+
+# macOS
+.DS_Store
+**/.DS_Store
