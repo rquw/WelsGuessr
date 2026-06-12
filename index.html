@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -395,11 +395,9 @@
   <div id="result-map-el"></div>
   <div id="vs-wait-overlay">
     <div class="wl" id="vs-wait-overlay-text">Warte auf Gegner…</div>
-    <div class="vs-waiting"><span class="vs-dot"></span><span class="vs-dot"></span><span class="vs-dot"></span></div>
+    <div class="vs-wait-spinner" aria-hidden="true"></div>
     <div class="ws" id="vs-wait-overlay-sub"></div>
   </div>
-  <div id="spec-cursor"></div>
-  <div id="spec-cursor-label"></div>
   <div id="result-footer">
     <div class="result-stats">
       <div class="stat" id="stat-dist"><div class="stat-label">Entfernung</div><div class="stat-value" id="res-dist">—</div></div>
@@ -577,7 +575,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=17"></script>
+<script src="script.js?v=18"></script>
 <script src="patches.js?v=10"></script>
 <script src="nav.js?v=6"></script>
 <!-- CHANGELOG MODAL -->

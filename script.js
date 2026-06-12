@@ -1030,6 +1030,7 @@ function submitGuess(){
 }
 
 function initResultMap(loc,guess){
+  $('result-screen').classList.toggle('vs-mode',!!S.isVs); // VS: Zwischenauswertung entschlacken
   if(S.resultMap){S.resultMap.remove();S.resultMap=null;}
   var actual=getActualLatLng(loc);
   S.resultMap=L.map('result-map-el',{center:[(actual.lat+guess.lat)/2,(actual.lng+guess.lng)/2],zoom:14,zoomControl:true,attributionControl:false});
@@ -1875,7 +1876,7 @@ async function createRoom(){
   roomCreationInProgress=true;
   var code=randomCode(),locs=shuffle(LOCATIONS.slice()).slice(0,5).map(function(l){return l.id;});
   try{
-    await sbFetch('rooms','POST',{id:code,host_name:name,location_ids:locs,host_scores:[],guest_scores:[],host_done:false,guest_done:false,host_guess_latlng:null,guest_guess_latlng:null,host_pano_angle:0,guest_pano_angle:0,host_map_cursor:null,guest_map_cursor:null,next_votes:0,play_again_votes:0,host_online:true,guest_online:false,host_next_voted:false,guest_next_voted:false,host_play_again_voted:false,guest_play_again_voted:false,last_activity:new Date().toISOString()});
+    await sbFetch('rooms','POST',{id:code,host_name:name,location_ids:locs,host_scores:[],guest_scores:[],host_done:false,guest_done:false,host_guess_latlng:null,guest_guess_latlng:null,host_pano_angle:0,guest_pano_angle:0,host_map_cursor:null,guest_map_cursor:null,next_votes:0,play_again_votes:0,host_online:true,guest_online:false,host_next_voted:false,guest_next_voted:false,host_play_again_voted:false,guest_play_again_voted:false,current_round:0,host_last_seen:new Date().toISOString(),last_activity:new Date().toISOString()});
     S.vsRoom=code;S.vsIsHost=true;S.vsMyName=name;S.vsMyScores=[];S.vsTheirScores=[];closeModal('vs-modal');
     $('vs-room-code').textContent=code;drawQR($('vs-qr-canvas'),window.location.origin+window.location.pathname+'?join='+code);openModal('vs-wait-modal');pollForGuest();
   }catch(e){alert('Fehler beim Erstellen: '+(e&&e.message?e.message:JSON.stringify(e)));}
@@ -1942,6 +1943,8 @@ async function qrJoinSubmit(){
 
 function startVsGame(locIds){
   resetScoreSavedUI();S.mode='vs';S.roundsTotal=5;resetBaseState();S.isVs=true;S._vsCounted=false;S.vsTheirScores=[];S.vsMyScores=[];S.skippedLocations=new Set();
+  // VS-Sync-State frisch
+  S.vsLeftShown=false;S._vsAdvanceLock=false;S._lastVsAdvanceAt=0;if(S._leftGraceTimer){clearTimeout(S._leftGraceTimer);S._leftGraceTimer=null;}hideDcNotice();
   S.locations=locIds.map(function(id){return LOCATIONS.find(function(l){return l.id===id;});}).filter(Boolean);
   $('vs-badge').style.display='block';$('vs-badge').textContent='VS '+S.vsTheirName;
   $('vs-strip').style.display='block';$('vs-strip-you').textContent=S.vsMyName;$('vs-strip-them').textContent=S.vsTheirName;$('round-total').textContent='5';
@@ -1963,28 +1966,84 @@ async function pushVsScore(pts,guessLL){
   }catch(e){}
 }
 
+// Gemeinsamer Rundenzeiger: beide Clients laden dieselbe Runde, sobald current_round steigt → gleichzeitiger Start
+function goToVsRound(targetRound){
+  if(!S.isVs)return;
+  if(targetRound<=S.round)return;
+  if(Date.now()-(S._lastVsAdvanceAt||0)<800)return;
+  S._lastVsAdvanceAt=Date.now();
+  vsLog('goToVsRound → '+(targetRound+1)+'/'+S.roundsTotal);
+  clearNextVoteTimers();hideVsWaitOverlay();stopSpectatePoll();clearSubmitCountdown();
+  $('vs-bottom-wait').classList.remove('show');$('next-vote-bar').classList.remove('show');
+  S.myNextVoted=false;S.nextVotes=0;S.vsTheirDone=false;S.vsTheirGuessLatLng=null;
+  var row=$('vs-their-guess-row');if(row){row.style.display='none';row.innerHTML='';}
+  var nb=$('next-btn');if(nb)nb.disabled=true;
+  S.round=targetRound;
+  if(S.round>=S.roundsTotal){sfx.next();showFinal();}
+  else{sfx.next();show('game-screen');loadRound();}
+}
+// Host ist Advance-Autorität: setzt current_round vorwärts, sobald beide bereit sind (oder per Timer erzwungen)
+async function vsAdvanceIfHost(force){
+  if(!S.isVs||!S.vsIsHost)return;
+  if(S._vsAdvanceLock)return;
+  if(!$('result-screen').classList.contains('active'))return;
+  try{
+    var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_next_voted,guest_next_voted,host_scores,guest_scores,current_round');
+    var r=rows&&rows[0];if(!r)return;
+    if((r.current_round||0)>S.round)return;
+    var bothVoted=r.host_next_voted&&r.guest_next_voted;
+    var bothDone=(r.host_scores||[]).length>S.round&&(r.guest_scores||[]).length>S.round;
+    if((bothVoted&&bothDone)||force){
+      S._vsAdvanceLock=true;
+      await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{current_round:S.round+1,next_votes:0,host_next_voted:false,guest_next_voted:false});
+      setTimeout(function(){S._vsAdvanceLock=false;},1500);
+    }
+  }catch(e){}
+}
+// Präsenz: Gegner gilt als weg, wenn sein last_seen zu alt ist (Heartbeat alle 3s). ~8s Stale + ~8s Gnadenfrist.
+function vsCheckPresence(r){
+  if(S.vsLeftShown)return;
+  var theirSeenKey=S.vsIsHost?'guest_last_seen':'host_last_seen';
+  var seen=r[theirSeenKey];
+  var stale=!seen||(Date.now()-new Date(seen).getTime())>8000;
+  if(stale){
+    if(!S._leftGraceTimer){
+      showDcNotice(S.vsTheirName+' ist gerade weg…');
+      S._leftGraceTimer=setTimeout(function(){
+        S._leftGraceTimer=null;
+        if(!S.vsLeftShown){S.vsLeftShown=true;showVsLeftMessage(S.vsTheirName);}
+      },8000);
+    }
+  } else {
+    if(S._leftGraceTimer){clearTimeout(S._leftGraceTimer);S._leftGraceTimer=null;}
+    hideDcNotice();
+  }
+}
+
 function startVsPoll(){
   if(S.vsPollInterval)clearInterval(S.vsPollInterval);
   S.vsPollInterval=setInterval(async function(){
     if(!S.vsRoom)return;
     try{
-      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_scores,guest_scores,host_online,guest_online,next_votes,play_again_votes,host_next_voted,guest_next_voted,host_play_again_voted,guest_play_again_voted');
+      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_scores,guest_scores,host_last_seen,guest_last_seen,current_round,next_votes,play_again_votes,host_next_voted,guest_next_voted,host_play_again_voted,guest_play_again_voted');
       if(!rows||!rows[0]){handleDisconnect();return;}
-      var r=rows[0],theirOnlineKey=S.vsIsHost?'guest_online':'host_online';
-      if(!r[theirOnlineKey]&&!S.vsLeftShown){
-        if(!S._leftGraceTimer){S._leftGraceTimer=setTimeout(function(){S._leftGraceTimer=null;if(!S.vsLeftShown){S.vsLeftShown=true;showVsLeftMessage(S.vsTheirName);}},6000);}
-      } else if(r[theirOnlineKey]){if(S._leftGraceTimer){clearTimeout(S._leftGraceTimer);S._leftGraceTimer=null;}hideDcNotice();}
+      var r=rows[0];
+      vsCheckPresence(r);
+      // gemeinsamer Rundenzeiger → gleichzeitig in die neue Runde
+      if(typeof r.current_round==='number'&&r.current_round>S.round){goToVsRound(r.current_round);return;}
       S.vsTheirScores=(S.vsIsHost?r.guest_scores:r.host_scores)||[];updateVsStrip();
       maybeShowOpponentGuessedHint();
-      var nv=r.next_votes||0,pav=r.play_again_votes||0;
-      if(nv!==S.nextVotes){S.nextVotes=nv;updateNextVoteUI();}
+      // Vote-Zähler race-sicher aus beiden Flags ableiten
+      var votes=(r.host_next_voted?1:0)+(r.guest_next_voted?1:0);
+      if(votes!==S.nextVotes){S.nextVotes=votes;updateNextVoteUI();}
+      var pav=r.play_again_votes||0;
       if(pav!==S.playAgainVotes){S.playAgainVotes=pav;updatePlayAgainVoteUI();}
-      var myNV=S.vsIsHost?r.host_next_voted:r.guest_next_voted,theirNV=S.vsIsHost?r.guest_next_voted:r.host_next_voted;
-            if(myNV&&theirNV&&$('result-screen').classList.contains('active')&&S.vsTheirDone)nextRound();
+      // Host rückt vor, sobald beide bereit sind
+      if($('result-screen').classList.contains('active'))vsAdvanceIfHost();
       var myPAV=S.vsIsHost?r.host_play_again_voted:r.guest_play_again_voted,theirPAV=S.vsIsHost?r.guest_play_again_voted:r.host_play_again_voted;
       if(myPAV&&theirPAV&&$('final-screen').classList.contains('active'))doPlayAgain();
     }catch(e){}
-  },1800);
+  },1500);
 }
 
 function showVsLeftMessage(name){
@@ -1996,13 +2055,12 @@ function showVsLeftMessage(name){
 }
 
 function startSpectatePoll(){
-  stopSpectatePoll();S.vsTheirDone=false;$('spec-cursor').style.display='none';$('spec-cursor-label').style.display='none';
+  stopSpectatePoll();S.vsTheirDone=false;
   S.vsSpecPollInterval=setInterval(async function(){
     if(!S.vsRoom)return;
     try{
       var theirScoreKey=S.vsIsHost?'guest_scores':'host_scores',theirGuessKey=S.vsIsHost?'guest_guess_latlng':'host_guess_latlng';
-      var theirAngleKey=S.vsIsHost?'guest_pano_angle':'host_pano_angle',theirCursorKey=S.vsIsHost?'guest_map_cursor':'host_map_cursor';
-      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select='+theirScoreKey+','+theirGuessKey+','+theirAngleKey+','+theirCursorKey);
+      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select='+theirScoreKey+','+theirGuessKey);
       if(!rows||!rows[0])return;var r=rows[0];
       var theirScores=r[theirScoreKey]||[];
       if(theirScores.length>S.round&&!S.vsTheirDone){
@@ -2011,11 +2069,10 @@ function startSpectatePoll(){
         else if(tg&&typeof tg.round==='undefined')S.vsTheirGuessLatLng=tg;
         onOpponentDone();return;
       }
-      if(!S.vsTheirDone){var cur=r[theirCursorKey],ang=r[theirAngleKey]||0;if(cur)updateSpecCursor(cur,ang);}
     }catch(e){}
   },900);
 }
-function stopSpectatePoll(){if(S.vsSpecPollInterval){clearInterval(S.vsSpecPollInterval);S.vsSpecPollInterval=null;}$('spec-cursor').style.display='none';$('spec-cursor-label').style.display='none';}
+function stopSpectatePoll(){if(S.vsSpecPollInterval){clearInterval(S.vsSpecPollInterval);S.vsSpecPollInterval=null;}}
 
 function onOpponentDone(){
   vsLog('Gegner fertig erkannt');
@@ -2032,13 +2089,6 @@ function onOpponentDone(){
   updateVsStrip();showNextVoteUI();$('next-btn').disabled=false;
 }
 
-function updateSpecCursor(cur,angle){
-  var sc=$('spec-cursor'),sl=$('spec-cursor-label'),cont=$('pano-container');if(!cont)return;
-  var rect=cont.getBoundingClientRect();
-  sc.style.left=(cur.x*rect.width)+'px';sc.style.top=(cur.y*rect.height)+'px';
-  sl.style.left=(cur.x*rect.width)+'px';sl.style.top=(cur.y*rect.height)+'px';
-  sl.textContent=S.vsTheirName+' ('+hdg(angle)+')';sc.style.display='block';sl.style.display='block';
-}
 
 var _submitCountdownInterval=null;
 function startSubmitCountdown(){
@@ -2063,42 +2113,54 @@ function clearSubmitCountdown(){
   var l=$('vs-submit-countdown');if(l){l.classList.remove('show');l.textContent='';}
 }
 
+var VS_WAIT_LINES=[
+  '{n} ist noch am Kochen…','{n} überlegt noch…','{n} dreht noch eine Ehrenrunde…',
+  '{n} schaut sich noch um…','{n} fährt noch eine Runde durchs Dorf…','Warte auf {n}…',
+  '{n} ist gleich soweit…','{n} hat da so eine Vermutung…','{n} braucht noch einen Geistesblitz…',
+  '{n} orientiert sich noch…','{n} lässt sich Zeit…'
+];
+var _vsWaitRotTimer=null;
+function _vsWaitLine(){var n=S.vsTheirName||'Gegner';return VS_WAIT_LINES[Math.floor(Math.random()*VS_WAIT_LINES.length)].replace('{n}',n);}
 function showVsWaitOverlay(doShow){
-  var o=$('vs-wait-overlay'),rs=$('result-screen');
+  var o=$('vs-wait-overlay');if(!o)return;
   if(doShow){
-    o.classList.add('show');$('vs-wait-overlay-text').textContent='Warte auf '+S.vsTheirName+'…';$('vs-wait-overlay-sub').textContent='';$('next-btn').disabled=true;
-    $('spec-cursor').style.left='50%';$('spec-cursor').style.top='40%';$('spec-cursor').style.display='block';
-    $('spec-cursor-label').style.left='50%';$('spec-cursor-label').style.top='40%';$('spec-cursor-label').textContent=S.vsTheirName;$('spec-cursor-label').style.display='block';
-  } else {rs.classList.remove('vs-clean-wait');o.classList.remove('show');}
+    o.classList.add('show');var t=$('vs-wait-overlay-text');if(t){t.style.opacity='1';t.textContent=_vsWaitLine();}
+    var sub=$('vs-wait-overlay-sub');if(sub)sub.textContent='';$('next-btn').disabled=true;
+    if(_vsWaitRotTimer)clearInterval(_vsWaitRotTimer);
+    _vsWaitRotTimer=setInterval(function(){
+      if(!o.classList.contains('show')){clearInterval(_vsWaitRotTimer);_vsWaitRotTimer=null;return;}
+      var el=$('vs-wait-overlay-text');if(!el)return;el.style.opacity='0';
+      setTimeout(function(){el.textContent=_vsWaitLine();el.style.opacity='1';},380);
+    },3500);
+  } else { o.classList.remove('show');if(_vsWaitRotTimer){clearInterval(_vsWaitRotTimer);_vsWaitRotTimer=null;} }
 }
-function hideVsWaitOverlay(){$('vs-wait-overlay').classList.remove('show');}
+function hideVsWaitOverlay(){var o=$('vs-wait-overlay');if(o)o.classList.remove('show');if(_vsWaitRotTimer){clearInterval(_vsWaitRotTimer);_vsWaitRotTimer=null;}}
 
 function startHeartbeat(){
   if(S.heartbeatInterval)clearInterval(S.heartbeatInterval);
-  S.heartbeatInterval=setInterval(async function(){
+  function beat(){
     if(!S.vsRoom)return;
-    try{var angleKey=S.vsIsHost?'host_pano_angle':'guest_pano_angle',onlineKey=S.vsIsHost?'host_online':'guest_online',patch={};patch[angleKey]=S.panoAngle;patch[onlineKey]=true;patch.last_activity=new Date().toISOString();await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',patch);}catch(e){}
-  },3000);
-  if(!_heartbeatListenerAdded){
-    _heartbeatListenerAdded=true;
-    // Cursor gedrosselt senden (~4/s) statt bei jedem mousemove
-    $('pano-container').addEventListener('mousemove',function(e){
-      if(!S.vsRoom||!S.isVs)return;
-      if(!$('game-screen').classList.contains('active'))return; // nur solange man noch schaut (nicht im Ergebnis)
-      var rect=$('pano-container').getBoundingClientRect();
-      _vsCursorPending={x:(e.clientX-rect.left)/rect.width,y:(e.clientY-rect.top)/rect.height};
-      var now=Date.now();
-      if(now-_vsCursorLast>=250){_vsCursorLast=now;flushVsCursor();}
-      else if(!_vsCursorTimer){_vsCursorTimer=setTimeout(function(){_vsCursorTimer=null;_vsCursorLast=Date.now();flushVsCursor();},250-(now-_vsCursorLast));}
-    });
+    var onlineKey=S.vsIsHost?'host_online':'guest_online',seenKey=S.vsIsHost?'host_last_seen':'guest_last_seen';
+    var now=new Date().toISOString(),patch={};patch[onlineKey]=true;patch[seenKey]=now;patch.last_activity=now;
+    sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',patch).catch(function(){});
   }
+  beat();
+  S.heartbeatInterval=setInterval(beat,3000);
 }
-var _vsCursorLast=0,_vsCursorTimer=null,_vsCursorPending=null;
-function flushVsCursor(){
-  if(!_vsCursorPending||!S.vsRoom||!S.isVs)return;
-  var curKey=S.vsIsHost?'host_map_cursor':'guest_map_cursor',p={};p[curKey]=_vsCursorPending;_vsCursorPending=null;
-  sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',p).catch(function(){});
+// best-effort: beim Schließen/Verstecken offline melden, damit der Gegner schneller merkt dass jemand weg ist.
+// fetch+keepalive (nicht sendBeacon, das kann nur POST — PostgREST braucht PATCH). Zuverlässiger Fallback ist die last_seen-Staleness.
+function vsMarkOffline(){
+  if(!S.vsRoom||!S.isVs)return;
+  try{
+    var onlineKey=S.vsIsHost?'host_online':'guest_online',seenKey=S.vsIsHost?'host_last_seen':'guest_last_seen';
+    var body={};body[onlineKey]=false;body[seenKey]=new Date(Date.now()-60000).toISOString();
+    fetch(SB_URL+'/rest/v1/rooms?id=eq.'+S.vsRoom,{method:'PATCH',keepalive:true,
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify(body)}).catch(function(){});
+  }catch(e){}
 }
+window.addEventListener('pagehide',vsMarkOffline);
+window.addEventListener('beforeunload',vsMarkOffline);
 
 function handleDisconnect(){vsLog('handleDisconnect: Raum-Zeile fehlt');showDcNotice('Verbindung verloren.');}
 function showDcNotice(msg){$('dc-notice').textContent=msg;$('dc-notice').classList.add('show');}
@@ -2108,19 +2170,24 @@ function showNextVoteUI(){
   clearNextVoteTimers(); // doppelte Auto-Timer vermeiden (onOpponentDone ODER Fallback)
   $('next-vote-bar').classList.add('show');updateNextVoteUI();
   var secs=NEXT_AUTO_SECS;
-  S.nextVoteAutoTimer=setInterval(function(){secs--;var tb=$('next-vote-timer');if(tb)tb.textContent='('+secs+'s)';if(secs<=0){clearNextVoteTimers();nextRound();}},1000);
+  S.nextVoteAutoTimer=setInterval(function(){
+    secs--;var tb=$('next-vote-timer');if(tb)tb.textContent='('+secs+'s)';
+    if(secs<=0){clearNextVoteTimers();
+      if(S.isVs){if(S.vsIsHost)vsAdvanceIfHost(true);else voteNext();} // Timer erzwingt Vorrücken (Host) bzw. Vote (Gast)
+      else nextRound();
+    }
+  },1000);
 }
-function updateNextVoteUI(){var bar=$('next-vote-bar');if(!bar.classList.contains('show'))return;bar.innerHTML='Nächste Runde ('+S.nextVotes+'/2) <span id="next-vote-timer"></span>';}
+function updateNextVoteUI(){var bar=$('next-vote-bar');if(!bar.classList.contains('show'))return;bar.innerHTML='Nächste Runde ('+(S.nextVotes||0)+'/2) <span id="next-vote-timer"></span>';}
 
 async function voteNext(){
-  if(!S.isVs){nextRound();return;}if(S.myNextVoted)return;S.myNextVoted=true;$('next-btn').disabled=true;
+  if(!S.isVs){nextRound();return;}
+  if(S.myNextVoted)return;S.myNextVoted=true;$('next-btn').disabled=true;
+  var myVK=S.vsIsHost?'host_next_voted':'guest_next_voted';
   try{
-    var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=next_votes,host_next_voted,guest_next_voted');
-    var cur=(rows&&rows[0]&&rows[0].next_votes)||0,myVK=S.vsIsHost?'host_next_voted':'guest_next_voted',theirVK=S.vsIsHost?'guest_next_voted':'host_next_voted';
-    var patch={next_votes:cur+1};patch[myVK]=true;await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',patch);
-    S.nextVotes=cur+1;updateNextVoteUI();
-    var theirAlreadyVoted=rows&&rows[0]&&rows[0][theirVK];
-    if(S.nextVotes>=2||theirAlreadyVoted){clearNextVoteTimers();if(S.vsTheirDone)nextRound();else{var waitCheck=setInterval(function(){if(S.vsTheirDone){clearInterval(waitCheck);nextRound();}},500);setTimeout(function(){clearInterval(waitCheck);nextRound();},15000);}}
+    // nur eigenes Flag setzen (race-sicher); das tatsächliche Vorrücken macht der Host über current_round
+    var p={};p[myVK]=true;await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',p);
+    vsAdvanceIfHost(); // falls ich der Host bin: sofort prüfen
   }catch(e){S.myNextVoted=false;$('next-btn').disabled=false;}
 }
 function clearNextVoteTimers(){if(S.nextVoteTimer){clearInterval(S.nextVoteTimer);S.nextVoteTimer=null;}if(S.nextVoteAutoTimer){clearInterval(S.nextVoteAutoTimer);S.nextVoteAutoTimer=null;}}
@@ -2161,7 +2228,7 @@ function updatePlayAgainVoteUI(){var bar=$('play-again-vote');bar.style.display=
 function doPlayAgain(){
   if(S._playAgainPoll){clearInterval(S._playAgainPoll);S._playAgainPoll=null;}
   var locs=shuffle(LOCATIONS.slice()).slice(0,5).map(function(l){return l.id;});
-  if(S.vsIsHost){sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{location_ids:locs,host_scores:[],guest_scores:[],host_done:false,guest_done:false,next_votes:0,play_again_votes:0,host_next_voted:false,guest_next_voted:false,host_play_again_voted:false,guest_play_again_voted:false,last_activity:new Date().toISOString()}).catch(function(){});startVsGame(locs);}
+  if(S.vsIsHost){sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{location_ids:locs,host_scores:[],guest_scores:[],host_done:false,guest_done:false,current_round:0,next_votes:0,play_again_votes:0,host_next_voted:false,guest_next_voted:false,host_play_again_voted:false,guest_play_again_voted:false,last_activity:new Date().toISOString()}).catch(function(){});startVsGame(locs);}
   else{var iv=setInterval(async function(){try{var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=location_ids,host_scores');if(rows&&rows[0]&&(!rows[0].host_scores||rows[0].host_scores.length===0)){clearInterval(iv);startVsGame(rows[0].location_ids);}}catch(e){}},2000);}
 }
 

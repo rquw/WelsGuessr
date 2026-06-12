@@ -381,7 +381,7 @@ body::before{
 /* result screen */
 #result-screen{background:var(--pine);gap:0}
 #result-screen.active{display:flex;flex-direction:column;height:100dvh}
-#result-map-el{flex:1;width:100%;min-height:0}
+#result-map-el{flex:1;width:100%;min-height:0;position:relative;z-index:0}
 #result-footer{background:rgba(0,0,0,.5);padding:1.1rem 1.4rem;display:flex;flex-direction:column;gap:.85rem}
 .result-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.65rem}
 .stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:.7rem;text-align:center;transform:translateY(12px);opacity:0;transition:transform .5s cubic-bezier(.16,1,.3,1),opacity .5s ease}
@@ -470,12 +470,12 @@ body::before{
 #round-flash{position:fixed;inset:0;background:rgba(201,168,76,.07);pointer-events:none;opacity:0;z-index:100;transition:opacity .15s}
 #round-flash.on{opacity:1}
 #round-flash.ember-flash{background:rgba(224,92,42,.09)}
-#vs-wait-overlay{display:none;position:absolute;inset:0;background:rgba(12,25,17,.94);backdrop-filter:blur(8px);z-index:120;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;text-align:center;padding:1rem}
+#vs-wait-overlay{display:none;position:fixed;inset:0;background:radial-gradient(circle at 50% 42%,#0c140e 0%,#050805 70%,#020302 100%);z-index:1200;flex-direction:column;align-items:center;justify-content:center;gap:1.6rem;text-align:center;padding:2rem}
 #vs-wait-overlay.show{display:flex}
-#vs-wait-overlay .wl{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--cream)}
-#vs-wait-overlay .ws{font-size:.68rem;color:var(--mist)}
-#spec-cursor{position:absolute;width:18px;height:18px;border-radius:50%;border:2px solid var(--gold);background:rgba(201,168,76,.2);pointer-events:none;transform:translate(-50%,-50%);transition:left .5s ease,top .5s ease;display:none;z-index:130}
-#spec-cursor-label{position:absolute;font-size:.55rem;color:var(--gold);white-space:nowrap;background:rgba(0,0,0,.6);padding:.15rem .4rem;border-radius:4px;transform:translate(-50%,14px);pointer-events:none;display:none;z-index:131}
+#vs-wait-overlay .wl{font-family:'Playfair Display',serif;font-size:clamp(1.3rem,4.5vw,2rem);font-weight:700;color:var(--cream);max-width:18ch;line-height:1.25;transition:opacity .4s ease}
+#vs-wait-overlay .ws{font-size:.68rem;color:var(--mist);letter-spacing:.1em}
+.vs-wait-spinner{width:42px;height:42px;border-radius:50%;border:3px solid rgba(201,168,76,.18);border-top-color:var(--gold);animation:vsSpin .8s linear infinite}
+@keyframes vsSpin{to{transform:rotate(360deg)}}
 #next-vote-bar{display:none;font-size:.65rem;color:var(--mist);text-align:center}
 #next-vote-bar.show{display:block}
 #next-vote-timer{display:inline-block;color:var(--gold);margin-left:.3rem}
@@ -534,13 +534,24 @@ body::before{
 .vs-h2h-mid{display:flex;align-items:center;justify-content:center;font-size:1rem;color:var(--gold);font-weight:700;min-width:.9rem}
 @keyframes fadeInPts{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 /* ── Hinweis im Spiel: Gegner hat schon geraten ── */
-#vs-opponent-guessed{position:absolute;top:3.1rem;left:50%;transform:translateX(-50%) translateY(-8px);z-index:16;display:none;opacity:0;
-  font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.05em;white-space:nowrap;
-  padding:.4rem .9rem;border-radius:20px;color:#fff;
-  background:rgba(143,168,154,.9);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(6px);
-  box-shadow:0 4px 18px rgba(0,0,0,.4);transition:opacity .3s ease,transform .3s ease;pointer-events:none}
-#vs-opponent-guessed.show{display:block;opacity:1;transform:translateX(-50%) translateY(0)}
-@media(max-width:768px){#vs-opponent-guessed{top:2.7rem;font-size:.56rem;padding:.34rem .75rem}}
+#vs-opponent-guessed{position:absolute;top:3.1rem;left:50%;transform:translateX(-50%) translateY(-10px) scale(.96);z-index:60;display:none;opacity:0;
+  font-family:'DM Mono',monospace;font-weight:700;font-size:.74rem;letter-spacing:.04em;white-space:nowrap;
+  padding:.5rem 1.05rem;border-radius:22px;color:#231a04;
+  background:linear-gradient(180deg,#f3d889,#d6ad48);border:1px solid rgba(255,240,200,.7);
+  box-shadow:0 6px 22px rgba(0,0,0,.5),0 0 22px rgba(201,168,76,.45);
+  transition:opacity .3s ease,transform .3s ease;pointer-events:none}
+#vs-opponent-guessed.show{display:block;opacity:1;transform:translateX(-50%) translateY(0) scale(1);animation:vsHintPulse 1.4s ease-in-out infinite}
+@keyframes vsHintPulse{0%,100%{box-shadow:0 6px 22px rgba(0,0,0,.5),0 0 18px rgba(201,168,76,.4)}50%{box-shadow:0 6px 26px rgba(0,0,0,.5),0 0 34px rgba(201,168,76,.75)}}
+@media(max-width:768px){#vs-opponent-guessed{top:2.7rem;font-size:.64rem;padding:.42rem .85rem}}
+
+/* ── VS-Zwischenauswertung: nur die zwei Kopf-an-Kopf-Karten ── */
+#result-screen.vs-mode .result-stats,
+#result-screen.vs-mode #score-verdict,
+#result-screen.vs-mode #inline-diff-rating,
+#result-screen.vs-mode #vs-strip,
+#result-screen.vs-mode #vs-bottom-wait,
+#result-screen.vs-mode #vs-submit-countdown,
+#result-screen.vs-mode #survival-threshold-row{display:none!important}
 
 /* ── Result screen revamp ── */
 #result-footer{background:linear-gradient(180deg,rgba(10,22,14,.92),rgba(12,25,17,.98));padding:1rem 1.2rem;display:flex;flex-direction:column;gap:.7rem;border-top:1px solid rgba(255,255,255,.06)}
