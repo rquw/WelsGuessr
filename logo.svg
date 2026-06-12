@@ -1,0 +1,76 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="#12281a"/>
+      <stop offset="1" stop-color="#07110a"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#f3dd92"/>
+      <stop offset="0.45" stop-color="#d3af52"/>
+      <stop offset="1" stop-color="#a07c2b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.45" r="0.55">
+      <stop offset="0" stop-color="#e8c86a" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#e8c86a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="globeFill" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#16331f"/>
+      <stop offset="1" stop-color="#0a160e"/>
+    </radialGradient>
+    <filter id="pinShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+    <clipPath id="card"><rect x="0" y="0" width="512" height="512" rx="114"/></clipPath>
+    <clipPath id="globe"><circle cx="256" cy="214" r="66"/></clipPath>
+  </defs>
+
+  <!-- card background -->
+  <rect x="0" y="0" width="512" height="512" rx="114" fill="url(#bg)"/>
+
+  <!-- faint street grid -->
+  <g clip-path="url(#card)" stroke="#e8c86a" stroke-opacity="0.06" stroke-width="3">
+    <line x1="-20" y1="120" x2="532" y2="60"/>
+    <line x1="-20" y1="250" x2="532" y2="200"/>
+    <line x1="-20" y1="400" x2="532" y2="470"/>
+    <line x1="90" y1="-20" x2="40" y2="532"/>
+    <line x1="250" y1="-20" x2="250" y2="532"/>
+    <line x1="430" y1="-20" x2="470" y2="532"/>
+    <line x1="-20" y1="520" x2="532" y2="120" stroke-opacity="0.04"/>
+  </g>
+
+  <!-- inner gold hairline ring -->
+  <rect x="16" y="16" width="480" height="480" rx="100" fill="none" stroke="#e8c86a" stroke-opacity="0.22" stroke-width="2.5"/>
+
+  <!-- glow behind the pin -->
+  <ellipse cx="256" cy="230" rx="170" ry="170" fill="url(#glow)"/>
+
+  <!-- map pin -->
+  <g filter="url(#pinShadow)">
+    <path d="M256 80
+             C181 80 121 138 121 211
+             C121 250 140 285 168 318
+             C198 353 232 386 256 432
+             C280 386 314 353 344 318
+             C372 285 391 250 391 211
+             C391 138 331 80 256 80 Z"
+          fill="url(#gold)"/>
+    <circle cx="256" cy="214" r="74" fill="url(#globeFill)"/>
+  </g>
+
+  <!-- globe meridians inside the pin head -->
+  <g clip-path="url(#globe)" fill="none" stroke="url(#gold)" stroke-width="4" stroke-opacity="0.95">
+    <circle cx="256" cy="214" r="66"/>
+    <!-- longitudes -->
+    <ellipse cx="256" cy="214" rx="22" ry="66"/>
+    <ellipse cx="256" cy="214" rx="46" ry="66" stroke-opacity="0.7"/>
+    <line x1="256" y1="148" x2="256" y2="280"/>
+    <!-- latitudes -->
+    <line x1="190" y1="214" x2="322" y2="214"/>
+    <path d="M196 184 Q256 198 316 184" stroke-opacity="0.85"/>
+    <path d="M196 244 Q256 230 316 244" stroke-opacity="0.85"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="256" y="474" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif"
+        font-weight="700" font-size="40" letter-spacing="3" fill="#f6efdc">Wels<tspan fill="#d3af52">Guessr</tspan></text>
+</svg>

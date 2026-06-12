@@ -1,4 +1,4 @@
-// patches.js — wird nach script.js geladen
+// patches.js: wird nach script.js geladen
 
 // mehr achievements mit niedrigerer schwelle
 (function() {
@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // submitGuess patchen: ≤2m easter egg + afterGuessExtras de-dupe
-  // script.js ruft afterGuessExtras() direkt — wir verhindern doppelte DB-writes
+  // script.js ruft afterGuessExtras() direkt, hier doppelte DB-Writes verhindern
   // indem wir afterGuessExtras überschreiben und nur _patchedAfterGuessExtras nutzen
   window.afterGuessExtras = function(locId) {
     _patchedAfterGuessExtras(locId);
@@ -152,18 +152,25 @@ document.addEventListener('DOMContentLoaded', function() {
       if (_isOwn) _editBtn.onclick = function(){ openAdminEditPlayer(name); };
     }
 
-    // dev-badge für fabio
-    var oldBadge = document.getElementById('dev-badge-fabio');
-    if (oldBadge) oldBadge.remove();
-    if (name.toLowerCase() === 'fabio') {
-      var devBadge = document.createElement('div');
-      devBadge.id = 'dev-badge-fabio';
-      devBadge.className = 'dev-badge';
-      devBadge.textContent = '🛠 Entwickler';
-      var nameEl = document.getElementById('profile-name-display');
-      if (nameEl && nameEl.parentNode) nameEl.parentNode.insertBefore(devBadge, nameEl.nextSibling);
+    // Badges: zurücksetzen, Entwickler sofort, Rest nach dem Laden
+    var badgesEl = document.getElementById('profile-badges');
+    if (badgesEl) badgesEl.innerHTML = '';
+    function addBadge(cls, text) {
+      if (!badgesEl) return;
+      var b = document.createElement('span');
+      b.className = 'profile-badge' + (cls ? ' ' + cls : '');
+      b.textContent = text;
+      badgesEl.appendChild(b);
     }
-    ['ps-games','ps-best','ps-avg','ps-streak','ps-dailies'].forEach(function(id) {
+    if (name.toLowerCase() === 'fabio') {
+      var devB = document.createElement('span');
+      devB.className = 'dev-badge'; devB.style.marginTop = '0'; devB.textContent = '🛠 Entwickler';
+      if (badgesEl) badgesEl.appendChild(devB);
+    }
+    var _isOwnProfile = S.isLoggedIn && S.loggedInName && S.loggedInName.toLowerCase() === name.toLowerCase();
+    var _vsCell = document.getElementById('ps-vs-cell');
+    if (_vsCell) _vsCell.style.display = _isOwnProfile ? '' : 'none';
+    ['ps-games','ps-best','ps-avg','ps-total','ps-streak','ps-dailies','ps-ach','ps-rank','ps-vs'].forEach(function(id) {
       var e = document.getElementById(id); if (e) e.textContent = '…';
     });
     el = document.getElementById('profile-achievements');
@@ -205,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
 
-      // Vorname/Nachname für Hover (isoliert — bricht nicht, wenn Spalten fehlen)
+      // Vorname/Nachname für Hover, isoliert damit fehlende Spalten nicht crashen
       try {
         var _pinfo = await sbFetch('players?name=ilike.' + encodeURIComponent(name) + '&select=vorname,nachname');
         if (_pinfo && _pinfo.length && _pinfo[0].vorname) {
@@ -234,6 +241,50 @@ document.addEventListener('DOMContentLoaded', function() {
       if (el) el.innerHTML = achHtml ||
         '<div style="font-size:.65rem;color:var(--mist)">Noch keine Erfolge.</div>';
 
+      // Gesamtpunkte + Erfolge-Zähler
+      var total = (scores || []).reduce(function(a, r) { return a + (r.score || 0); }, 0);
+      el = document.getElementById('ps-total'); if (el) el.textContent = fmtN(total);
+      el = document.getElementById('ps-ach');   if (el) el.textContent = haveKeys.size + '/' + ACHIEVEMENTS.length;
+
+      // Bestenlisten-Rang (bester Score je Spieler)
+      var rank = null;
+      try {
+        var allRows = await sbFetch('wels_scores?select=name,score&order=score.desc&limit=1000');
+        var bestByName = {};
+        (allRows || []).forEach(function(r) {
+          if (!r.name) return; var k = r.name.toLowerCase();
+          if (!bestByName[k] || r.score > bestByName[k]) bestByName[k] = r.score;
+        });
+        var ranked = Object.keys(bestByName).sort(function(a, b) { return bestByName[b] - bestByName[a]; });
+        var idx = ranked.indexOf(name.toLowerCase());
+        if (idx >= 0) rank = idx + 1;
+      } catch (_) {}
+      el = document.getElementById('ps-rank'); if (el) el.textContent = rank ? '#' + rank : '—';
+
+      // Champion von gestern (Top der gestrigen Daily)
+      var wasChampYesterday = false;
+      try {
+        var yKey = (typeof getYesterdayKey === 'function') ? getYesterdayKey() : null;
+        if (yKey) {
+          var yTop = await sbFetch('wels_daily_scores?date_key=eq.' + encodeURIComponent(yKey) + '&select=name,score&order=score.desc&limit=1');
+          if (yTop && yTop.length && yTop[0].name && yTop[0].name.toLowerCase() === name.toLowerCase()) wasChampYesterday = true;
+        }
+      } catch (_) {}
+
+      // Badges anhängen
+      if (rank === 1) addBadge('badge-gold1', '🥇 Bestenliste #1');
+      else if (rank === 2) addBadge('badge-gold2', '🥈 Bestenliste #2');
+      else if (rank === 3) addBadge('badge-gold3', '🥉 Bestenliste #3');
+      if (wasChampYesterday) addBadge('badge-champ', '👑 Champion von gestern');
+      if (haveKeys.size >= ACHIEVEMENTS.length) addBadge('badge-allach', '🏅 Alle Errungenschaften');
+
+      // 1v1-Siege (eigenes Profil, lokal getrackt)
+      if (_isOwnProfile) {
+        var vsWins = 0;
+        try { vsWins = parseInt(localStorage.getItem('wg_vs_wins') || '0', 10) || 0; } catch (_) {}
+        el = document.getElementById('ps-vs'); if (el) el.textContent = vsWins;
+      }
+
       var recentHtml = (scores || []).slice(0, 12).map(function(r) {
         var rd = new Date(r.created_at);
         return '<div class="profile-score-row">' +
@@ -252,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
 
-  // leaderboard-namen NICHT mehr anklickbar — nur 👤-Button öffnet Profil
+  // Leaderboard-Namen nicht mehr anklickbar, nur der 👤-Button öffnet das Profil
   function wireProfileClicks(listId) { /* deaktiviert */ }
 
   var _origLoadLb = window.loadLeaderboardData;
@@ -328,7 +379,7 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   // minDist tracken für achievements (bullseye/close_call)
-  // submitGuess ist schon oben gewrapped — wir ergänzen nur den minDist-tracker
+  // submitGuess ist oben schon gewrapped, hier nur der minDist-Tracker
   var _origSGWithDist = window.submitGuess;
   window.submitGuess = function() {
     if (S.guessLatLng && S.current) {

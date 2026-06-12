@@ -4,10 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WelsGuessr</title>
+<script>document.title='WelsGuessr';</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=13">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -366,6 +367,7 @@
     <div id="top-bar-diff">Schwierigkeit: Unbestimmt</div>
   </div>
   <div id="vs-badge"></div>
+  <div id="vs-opponent-guessed"></div>
   <div id="survival-badge"></div>
   <div id="pano-container">
     <div id="pano-strip"></div>
@@ -575,8 +577,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=2"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=14"></script>
+<script src="script.js?v=17"></script>
 <script src="patches.js?v=10"></script>
+<script src="nav.js?v=6"></script>
 <!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">
   <div class="modal changelog-modal-inner" id="changelog-modal-inner">
@@ -648,11 +651,13 @@
 <!-- PROFILE SCREEN -->
 <div class="screen" id="profile-screen" style="overflow-y:auto;justify-content:flex-start;padding:2rem 1rem 4rem">
   <div class="profile-layout">
+    <button class="profile-back-top" onclick="goHome()">← Zurück</button>
     <div class="profile-header">
       <div class="profile-avatar" id="profile-avatar">?</div>
       <div class="profile-header-info">
         <div class="profile-name" id="profile-name-display">—</div>
         <div class="profile-since" id="profile-since"></div>
+        <div class="profile-badges" id="profile-badges"></div>
         <button id="profile-self-edit-btn" class="profile-edit-btn" style="display:none">✏️ Profil bearbeiten</button>
       </div>
     </div>
@@ -670,6 +675,10 @@
         <div class="profile-stat-label">Ø Punkte</div>
       </div>
       <div class="profile-stat">
+        <div class="profile-stat-val" id="ps-total">—</div>
+        <div class="profile-stat-label">Gesamtpunkte</div>
+      </div>
+      <div class="profile-stat">
         <div class="profile-stat-val ember" id="ps-streak">—</div>
         <div class="profile-stat-label">Streak 🔥</div>
       </div>
@@ -677,14 +686,23 @@
         <div class="profile-stat-val" id="ps-dailies">—</div>
         <div class="profile-stat-label">Dailies gespielt</div>
       </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val gold" id="ps-ach">—</div>
+        <div class="profile-stat-label">Erfolge</div>
+      </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val" id="ps-rank">—</div>
+        <div class="profile-stat-label">Bestenliste</div>
+      </div>
+      <div class="profile-stat" id="ps-vs-cell" style="display:none">
+        <div class="profile-stat-val gold" id="ps-vs">—</div>
+        <div class="profile-stat-label">1v1 Siege</div>
+      </div>
     </div>
     <div class="profile-section-title">Erfolge</div>
     <div id="profile-achievements"></div>
     <div class="profile-section-title" style="margin-top:.5rem">Letzte Spiele</div>
     <div id="profile-recent-scores"></div>
-    <div style="display:flex;justify-content:center;margin-top:1.5rem">
-      <button class="big-btn" onclick="goHome()" style="padding:.8rem 2rem">← Zurück</button>
-    </div>
   </div>
 </div>
 </body>
