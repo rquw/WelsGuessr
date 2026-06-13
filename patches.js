@@ -1,5 +1,31 @@
 // patches.js: wird nach script.js geladen
 
+// ── Profil: Stats pro Guessr-Standort (alle teilen dasselbe Supabase-Projekt) ──
+// Tabellen sind pro Standort geprefixt; players/achievements sind geteilt (kontoweit).
+var GUESSR_SITES = [
+  { key:'ternberg', label:'Ternberg', scores:'scores',          daily:'daily_scores',          vsWinsKey:'tg_vs_wins' },
+  { key:'wels',     label:'Wels',     scores:'wels_scores',     daily:'wels_daily_scores',     vsWinsKey:'wg_vs_wins' },
+  { key:'scharten', label:'Scharten', scores:'scharten_scores', daily:'scharten_daily_scores', vsWinsKey:'sg_vs_wins' },
+];
+var CURRENT_SITE = 'wels';        // pro Repo: 'wels' bzw. 'scharten'
+var _profileSite = CURRENT_SITE;       // aktuell im Profil gewählter Standort
+var _profileName = null;               // aktuell angezeigter Spieler (für Re-Render bei Standortwechsel)
+function _siteCfg(key){ return GUESSR_SITES.find(function(s){return s.key===key;}) || GUESSR_SITES[0]; }
+// Standort im Profil umschalten (Buttons rufen das auf)
+window.selectProfileSite = function(key){
+  if(key===_profileSite) return;
+  _profileSite = key;
+  _renderProfileSiteTabs();
+  if(_profileName) window.openProfile(_profileName, { keepSite:true });
+};
+function _renderProfileSiteTabs(){
+  var wrap = document.getElementById('profile-site-tabs');
+  if(!wrap) return;
+  Array.prototype.forEach.call(wrap.children, function(btn){
+    btn.classList.toggle('active', btn.getAttribute('data-site')===_profileSite);
+  });
+}
+
 // mehr achievements mit niedrigerer schwelle
 (function() {
   var extra = [
@@ -87,6 +113,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  // Profil: Standort-Umschalter (Ternberg / Wels / Scharten) einfügen
+  if (!document.getElementById('profile-site-tabs')) {
+    var _pHeader = document.querySelector('#profile-screen .profile-header');
+    if (_pHeader) {
+      var tabs = document.createElement('div');
+      tabs.id = 'profile-site-tabs';
+      tabs.innerHTML = GUESSR_SITES.map(function(s){
+        return '<button type="button" class="profile-site-tab' + (s.key===CURRENT_SITE?' active':'') +
+          '" data-site="' + s.key + '" onclick="selectProfileSite(\'' + s.key + '\')">' + s.label + '</button>';
+      }).join('');
+      _pHeader.parentNode.insertBefore(tabs, _pHeader.nextSibling);
+    }
+  }
+
   // submitGuess patchen: ≤2m easter egg + afterGuessExtras de-dupe
   // script.js ruft afterGuessExtras() direkt, hier doppelte DB-Writes verhindern
   // indem wir afterGuessExtras überschreiben und nur _patchedAfterGuessExtras nutzen
@@ -128,16 +168,22 @@ document.addEventListener('DOMContentLoaded', function() {
     _patchedAfterFinalExtras();
   };
 
-  // openProfile: akzeptiert beliebigen spielernamen + dev-badge
-  window.openProfile = async function(playerName) {
+  // openProfile: akzeptiert beliebigen spielernamen + dev-badge + Standortwahl
+  window.openProfile = async function(playerName, opts) {
     var name = playerName || (S.isLoggedIn ? S.loggedInName : null);
     if (!name) return;
+    opts = opts || {};
+    _profileName = name;
+    // Frisch geöffnet → auf den aktuellen Standort zurücksetzen; bei Standortwechsel beibehalten
+    if (!opts.keepSite) _profileSite = CURRENT_SITE;
+    var SITE = _siteCfg(_profileSite);
 
     // Leaderboard schließen, wenn offen
     var _lb = document.getElementById('lb-modal');
     if (_lb && _lb.classList.contains('open')) closeModal('lb-modal');
 
     show('profile-screen');
+    _renderProfileSiteTabs();
     var el;
     el = document.getElementById('profile-name-display');
     if (el) { el.textContent = name; el.setAttribute('data-spitzname', name); el.removeAttribute('data-realname'); el.style.color = ''; }
@@ -180,7 +226,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     try {
       var scores = await sbFetch(
-        'wels_scores?name=ilike.' + encodeURIComponent(name) +
+        SITE.scores + '?name=ilike.' + encodeURIComponent(name) +
         '&select=score,created_at&order=created_at.desc&limit=100'
       );
       var games = scores ? scores.length : 0;
@@ -192,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
       el = document.getElementById('ps-avg');   if (el) el.textContent = fmtN(avg);
 
       var dailyRows = await sbFetch(
-        'wels_daily_scores?name=ilike.' + encodeURIComponent(name) + '&select=id&limit=999'
+        SITE.daily + '?name=ilike.' + encodeURIComponent(name) + '&select=id&limit=999'
       ).catch(function() { return []; });
       el = document.getElementById('ps-dailies');
       if (el) el.textContent = dailyRows ? dailyRows.length : 0;
@@ -249,7 +295,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Bestenlisten-Rang (bester Score je Spieler)
       var rank = null;
       try {
-        var allRows = await sbFetch('wels_scores?select=name,score&order=score.desc&limit=1000');
+        var allRows = await sbFetch(SITE.scores + '?select=name,score&order=score.desc&limit=1000');
         var bestByName = {};
         (allRows || []).forEach(function(r) {
           if (!r.name) return; var k = r.name.toLowerCase();
@@ -266,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         var yKey = (typeof getYesterdayKey === 'function') ? getYesterdayKey() : null;
         if (yKey) {
-          var yTop = await sbFetch('wels_daily_scores?date_key=eq.' + encodeURIComponent(yKey) + '&select=name,score&order=score.desc&limit=1');
+          var yTop = await sbFetch(SITE.daily + '?date_key=eq.' + encodeURIComponent(yKey) + '&select=name,score&order=score.desc&limit=1');
           if (yTop && yTop.length && yTop[0].name && yTop[0].name.toLowerCase() === name.toLowerCase()) wasChampYesterday = true;
         }
       } catch (_) {}
@@ -281,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // 1v1-Siege (eigenes Profil, lokal getrackt)
       if (_isOwnProfile) {
         var vsWins = 0;
-        try { vsWins = parseInt(localStorage.getItem('wg_vs_wins') || '0', 10) || 0; } catch (_) {}
+        try { vsWins = parseInt(localStorage.getItem(SITE.vsWinsKey) || '0', 10) || 0; } catch (_) {}
         el = document.getElementById('ps-vs'); if (el) el.textContent = vsWins;
       }
 
@@ -413,6 +459,10 @@ document.addEventListener('DOMContentLoaded', function() {
     '#difficulty-display .diff-label-text{color:#f5f0e8;font-weight:600;}',
     '#difficulty-display .diff-count{font-size:.58rem;opacity:.55;}',
     '.lb-list .lb-name:hover,#daily-lb-list .lb-name:hover{text-decoration:underline;cursor:pointer;}',
+    '#profile-site-tabs{display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin:.1rem 0 1rem;}',
+    '.profile-site-tab{font-family:"DM Mono",monospace;font-size:.66rem;letter-spacing:.04em;padding:.4rem .95rem;border-radius:20px;border:1.5px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:var(--mist);cursor:pointer;transition:border-color .15s,color .15s,background .15s,transform .1s;}',
+    '.profile-site-tab:hover{border-color:rgba(255,255,255,.32);color:var(--cream);}',
+    '.profile-site-tab.active{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.12);}',
   ].join('');
   document.head.appendChild(style);
 

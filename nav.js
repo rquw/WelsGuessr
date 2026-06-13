@@ -106,7 +106,7 @@
       '#nav-return:hover{background:rgba(201,168,76,.2);border-color:var(--gold-light,#e8c86a);' +
         'transform:translateX(-50%) translateY(-2px)}' +
       '#nav-return:active{transform:translateX(-50%) translateY(0)}' +
-      '@media(max-width:768px){#nav-return{bottom:calc(165px + 1.2rem);font-size:.6rem;padding:.42rem .85rem}}' +
+      '@media(max-width:768px){#nav-return{bottom:calc(165px + 1.2rem + env(safe-area-inset-bottom));font-size:.6rem;padding:.42rem .85rem}}' +
       // Karte muss über der Start-Erinnerung liegen
       '#map-panel{z-index:40}';
     document.head.appendChild(s);
@@ -208,6 +208,13 @@
     if (!IW) return;
     var W = cont.clientWidth, H = cont.clientHeight;
     var yaw = (typeof S !== 'undefined' && typeof S.panoAngle === 'number') ? S.panoAngle : 0;
+    // Auf Mobile liegt die Karte unten über dem Panorama → Pfeil nicht dahinter schieben (sonst abgeschnitten)
+    var maxY = H * 0.92;
+    var mp = $id('map-panel');
+    if (mp) {
+      var mr = mp.getBoundingClientRect(), cr = cont.getBoundingClientRect();
+      if (mr.width > cr.width * 0.6 && mr.top < cr.bottom) maxY = Math.min(maxY, (mr.top - cr.top) - 34);
+    }
     NAV.els.forEach(function (el) {
       var d = angleDiff(yaw, el._arrow.bearing);     // -180..180
       var x = 0.5 * IW + (d / 90) * IW;
@@ -217,7 +224,7 @@
       if (!visible) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; return; }
       // näher = tiefer und größer
       var t = Math.max(0, Math.min(1, (el._arrow.dist - MIN_DIST_FLOOR) / (MAX_LINK_DIST - MIN_DIST_FLOOR)));
-      var y = H * (0.80 - 0.14 * t);
+      var y = Math.min(H * (0.80 - 0.14 * t), maxY);
       var scale = 1.12 - 0.42 * t;
       // an den Rändern ausblenden
       var edge = Math.min(x, W - x);

@@ -956,6 +956,11 @@ body::before{
   .menu-card-title{font-size:1.05rem}
   .menu-card-sub{font-size:.6rem;max-width:none;line-height:1.5}
   .menu-card-cta{font-size:.65rem;padding:.5rem .75rem}
+  /* 2-up Karten (1v1 + Hitzewelle) vertikal stapeln, damit der Button nicht abgeschnitten wird */
+  .menu-card:not(.menu-card-hero):not(.daily-card){display:flex;flex-direction:column;align-items:stretch;gap:.5rem}
+  .menu-card:not(.menu-card-hero):not(.daily-card) .menu-card-left{gap:.25rem}
+  .menu-card:not(.menu-card-hero):not(.daily-card) .menu-card-right{margin-top:auto;width:100%}
+  .menu-card:not(.menu-card-hero):not(.daily-card) .menu-card-cta{display:block;width:100%;text-align:center}
   /* Daily screen: vollständig scrollbar, Buttons immer sichtbar */
   #daily-screen{padding:.75rem;justify-content:flex-start;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,1rem)}
   .daily-layout{width:100%;grid-template-columns:1fr;gap:.65rem;overflow-y:visible;max-height:none;padding-bottom:.5rem}
@@ -970,15 +975,15 @@ body::before{
   #daily-lb-list{max-height:none;overflow:visible}
   .daily-board-title h2{font-size:1.15rem}
   /* Game top-bar: auf Mobile kompakter, Schwierigkeits-Badge ausblenden */
-  #top-bar{top:.65rem;left:50%;transform:translateX(-50%);right:auto;max-width:calc(100vw - 8rem);flex-wrap:nowrap}
+  #top-bar{top:calc(.65rem + env(safe-area-inset-top));left:50%;transform:translateX(-50%);right:auto;max-width:calc(100vw - 8rem);flex-wrap:nowrap}
   #top-bar-diff{display:none!important}
   #round-badge{font-size:.58rem;padding:.28rem .65rem;white-space:nowrap}
   #score-badge{font-size:.58rem;padding:.28rem .65rem}
-  #vs-badge{top:.65rem;left:.65rem;max-width:35vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #compass{top:.65rem;right:.65rem}
-  #vol-btn{left:.65rem;bottom:calc(165px + .9rem);z-index:12}
-  #survival-badge{top:3rem;font-size:.58rem;padding:.22rem .6rem}
-  #back-to-home-btn{font-size:.56rem;padding:.38rem .7rem;top:.55rem;left:.55rem}#map-panel{left:.65rem;right:.65rem;bottom:.65rem;width:auto;border-radius:12px;transform:none!important}
+  #vs-badge{top:calc(.65rem + env(safe-area-inset-top));left:calc(.65rem + env(safe-area-inset-left));max-width:35vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #compass{top:calc(.65rem + env(safe-area-inset-top));right:calc(.65rem + env(safe-area-inset-right))}
+  #vol-btn{left:calc(.65rem + env(safe-area-inset-left));bottom:calc(165px + .9rem + env(safe-area-inset-bottom));z-index:12}
+  #survival-badge{top:calc(3rem + env(safe-area-inset-top));font-size:.58rem;padding:.22rem .6rem}
+  #back-to-home-btn{font-size:.56rem;padding:.38rem .7rem;top:calc(.55rem + env(safe-area-inset-top));left:calc(.55rem + env(safe-area-inset-left))}#map-panel{left:calc(.65rem + env(safe-area-inset-left));right:calc(.65rem + env(safe-area-inset-right));bottom:calc(.65rem + env(safe-area-inset-bottom));width:auto;border-radius:12px;transform:none!important}
   #map-panel:hover{width:auto;transform:none;box-shadow:0 8px 40px rgba(0,0,0,.5)}
   #map-el{height:140px}
   #map-panel:hover #map-el{height:140px}
@@ -998,7 +1003,10 @@ body::before{
   .vs-strip-row{gap:.3rem}
   .vs-strip-name,.vs-strip-score{font-size:.6rem}
   .final-breakdown{width:min(94vw,380px)}
-  #final-screen{padding:1rem;gap:1rem}
+  /* Endbildschirm: von oben scrollbar statt zentriert-überlappt, mit Safe-Area */
+  #final-screen{justify-content:flex-start;overflow-y:auto;gap:1rem;padding:calc(1.25rem + env(safe-area-inset-top)) 1rem calc(2.5rem + env(safe-area-inset-bottom))}
+  #auth-btn{top:calc(1rem + env(safe-area-inset-top));right:calc(1rem + env(safe-area-inset-right))}
+  .footer-made{bottom:calc(1.2rem + env(safe-area-inset-bottom))}
   .modal{width:min(96vw,440px);padding:1rem;border-radius:14px}
   .modal h2{font-size:1.15rem}
   .modal-row{flex-direction:column}

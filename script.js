@@ -998,7 +998,14 @@ function submitGuess(){
       survivalThresholdEl.classList.add('show');
     }
   }
-  if(S.isVs){vsLog('eigener Tipp abgegeben ('+fmtN(pts)+' Pkt.) → warte auf Gegner');pushVsScore(pts,S.guessLatLng);setTimeout(function(){showVsWaitOverlay(true);},1000);$('vs-bottom-wait').classList.add('show');startSpectatePoll();startSubmitCountdown();}
+  if(S.isVs){
+    vsLog('eigener Tipp abgegeben ('+fmtN(pts)+' Pkt.) → warte auf Gegner');
+    // Warte-Ziel synchron setzen: Gegner gilt als fertig, sobald seine Score-Liste so lang ist wie meine jetzt.
+    S._vsWaitForLen=S.round+1; S._vsLastPts=pts; S._vsLastGuess={lat:S.guessLatLng.lat,lng:S.guessLatLng.lng}; S._vsRepushing=false;
+    pushVsScore(pts,S.guessLatLng);
+    setTimeout(function(){showVsWaitOverlay(true);},1000);
+    $('vs-bottom-wait').classList.add('show');startSpectatePoll();startSubmitCountdown();
+  }
   if(S.mode==='survival'){
     showSurvivalScoreReveal(pts,getSurvivalThreshold(S.round),function(){
       show('result-screen'); initResultMap(loc,S.guessLatLng);
@@ -1944,7 +1951,7 @@ async function qrJoinSubmit(){
 function startVsGame(locIds){
   resetScoreSavedUI();S.mode='vs';S.roundsTotal=5;resetBaseState();S.isVs=true;S._vsCounted=false;S.vsTheirScores=[];S.vsMyScores=[];S.skippedLocations=new Set();
   // VS-Sync-State frisch
-  S.vsLeftShown=false;S._vsAdvanceLock=false;S._lastVsAdvanceAt=0;if(S._leftGraceTimer){clearTimeout(S._leftGraceTimer);S._leftGraceTimer=null;}hideDcNotice();
+  S.vsLeftShown=false;S._vsAdvanceLock=false;S._lastVsAdvanceAt=0;S._vsWaitForLen=0;S._vsRepushing=false;S._vsLastGuess=null;if(S._leftGraceTimer){clearTimeout(S._leftGraceTimer);S._leftGraceTimer=null;}hideDcNotice();
   S.locations=locIds.map(function(id){return LOCATIONS.find(function(l){return l.id===id;});}).filter(Boolean);
   $('vs-badge').style.display='block';$('vs-badge').textContent='VS '+S.vsTheirName;
   $('vs-strip').style.display='block';$('vs-strip-you').textContent=S.vsMyName;$('vs-strip-them').textContent=S.vsTheirName;$('round-total').textContent='5';
@@ -1952,18 +1959,31 @@ function startVsGame(locIds){
   sfx.start();show('game-screen');var _hb=$('back-to-home-btn');if(_hb)_hb.style.display='none';initPanoDrag();loadRound();startVsPoll();startHeartbeat();
 }
 
+// Score in den Raum schreiben. Idempotent (setzt den Slot der Runde statt anzuhängen) und mit
+// Retry — so geht ein einzelner verlorener PATCH (flaky Mobilfunknetz) nicht verloren und der
+// Gegner hängt nicht ewig in "warte auf Gegner". Self-Heal (Haupt-Poll) ruft das ggf. erneut auf.
 async function pushVsScore(pts,guessLL){
-  try{
-    var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_scores,guest_scores');if(!rows||!rows[0])return;
-    var myKey=S.vsIsHost?'host_scores':'guest_scores',gKey=S.vsIsHost?'host_guess_latlng':'guest_guess_latlng';
-    var cur=(rows[0][myKey]||[]).slice();cur.push(pts);
-    var isLast=S.round>=S.roundsTotal-1,patch={};
-    patch[myKey]=cur;patch[gKey]={lat:guessLL.lat,lng:guessLL.lng,round:S.round};
-    patch[S.vsIsHost?'host_done':'guest_done']=isLast;
-    patch[S.vsIsHost?'host_next_voted':'guest_next_voted']=false;patch[S.vsIsHost?'guest_next_voted':'host_next_voted']=false;
-    patch.next_votes=0;patch.last_activity=new Date().toISOString();
-    await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',patch);
-  }catch(e){}
+  var myKey=S.vsIsHost?'host_scores':'guest_scores',gKey=S.vsIsHost?'host_guess_latlng':'guest_guess_latlng';
+  var roundIdx=S.round;
+  for(var attempt=0;attempt<5;attempt++){
+    try{
+      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_scores,guest_scores');
+      if(!rows||!rows[0])return false;
+      var cur=(rows[0][myKey]||[]).slice();
+      cur[roundIdx]=pts;                                  // Slot setzen → kein Doppeleintrag bei Retry/Self-Heal
+      for(var i=0;i<cur.length;i++){if(cur[i]==null)cur[i]=0;}
+      var isLast=roundIdx>=S.roundsTotal-1,patch={};
+      patch[myKey]=cur;patch[gKey]={lat:guessLL.lat,lng:guessLL.lng,round:roundIdx};
+      patch[S.vsIsHost?'host_done':'guest_done']=isLast;
+      patch[S.vsIsHost?'host_next_voted':'guest_next_voted']=false;patch[S.vsIsHost?'guest_next_voted':'host_next_voted']=false;
+      patch.next_votes=0;patch.last_activity=new Date().toISOString();
+      await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',patch);
+      vsLog('Score gepusht (Runde '+(roundIdx+1)+', Versuch '+(attempt+1)+')');
+      return true;
+    }catch(e){ await new Promise(function(r){setTimeout(r,500);}); }
+  }
+  vsLog('Score-Push fehlgeschlagen nach 5 Versuchen');
+  return false;
 }
 
 // Gemeinsamer Rundenzeiger: beide Clients laden dieselbe Runde, sobald current_round steigt → gleichzeitiger Start
@@ -1976,6 +1996,7 @@ function goToVsRound(targetRound){
   clearNextVoteTimers();hideVsWaitOverlay();stopSpectatePoll();clearSubmitCountdown();
   $('vs-bottom-wait').classList.remove('show');$('next-vote-bar').classList.remove('show');
   S.myNextVoted=false;S.nextVotes=0;S.vsTheirDone=false;S.vsTheirGuessLatLng=null;
+  S._vsWaitForLen=0;S._vsRepushing=false;S._vsLastGuess=null;
   var row=$('vs-their-guess-row');if(row){row.style.display='none';row.innerHTML='';}
   var nb=$('next-btn');if(nb)nb.disabled=true;
   S.round=targetRound;
@@ -1993,7 +2014,9 @@ async function vsAdvanceIfHost(force){
     if((r.current_round||0)>S.round)return;
     var bothVoted=r.host_next_voted&&r.guest_next_voted;
     var bothDone=(r.host_scores||[]).length>S.round&&(r.guest_scores||[]).length>S.round;
-    if((bothVoted&&bothDone)||force){
+    // NIE vorrücken, solange nicht beide diese Runde abgegeben haben (sonst wird ein noch ratender Gegner übersprungen).
+    // 'force' (Auto-Timer) überspringt nur die Vote-Pflicht, nicht die Abgabe-Pflicht.
+    if(bothDone&&(bothVoted||force)){
       S._vsAdvanceLock=true;
       await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{current_round:S.round+1,next_votes:0,host_next_voted:false,guest_next_voted:false});
       setTimeout(function(){S._vsAdvanceLock=false;},1500);
@@ -2025,7 +2048,7 @@ function startVsPoll(){
   S.vsPollInterval=setInterval(async function(){
     if(!S.vsRoom)return;
     try{
-      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_scores,guest_scores,host_last_seen,guest_last_seen,current_round,next_votes,play_again_votes,host_next_voted,guest_next_voted,host_play_again_voted,guest_play_again_voted');
+      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_scores,guest_scores,host_guess_latlng,guest_guess_latlng,host_last_seen,guest_last_seen,current_round,next_votes,play_again_votes,host_next_voted,guest_next_voted,host_play_again_voted,guest_play_again_voted');
       if(!rows||!rows[0]){handleDisconnect();return;}
       var r=rows[0];
       vsCheckPresence(r);
@@ -2033,6 +2056,16 @@ function startVsPoll(){
       if(typeof r.current_round==='number'&&r.current_round>S.round){goToVsRound(r.current_round);return;}
       S.vsTheirScores=(S.vsIsHost?r.guest_scores:r.host_scores)||[];updateVsStrip();
       maybeShowOpponentGuessedHint();
+      // Während ich auf den Gegner warte: eigenen Score selbst-heilen (falls der PATCH verloren ging)
+      // und Gegner-fertig redundant erkennen (zweiter Poller neben dem Spectate-Poll).
+      if($('result-screen').classList.contains('active')&&S._vsWaitForLen){
+        var _myScores=(S.vsIsHost?r.host_scores:r.guest_scores)||[];
+        if(_myScores.length<S._vsWaitForLen&&!S._vsRepushing&&S._vsLastGuess){
+          S._vsRepushing=true;vsLog('Self-Heal: eigener Score fehlt im Raum → erneut pushen');
+          pushVsScore(S._vsLastPts,S._vsLastGuess).then(function(){S._vsRepushing=false;}).catch(function(){S._vsRepushing=false;});
+        }
+        vsHandleOpponentState(S.vsTheirScores,(S.vsIsHost?r.guest_guess_latlng:r.host_guess_latlng));
+      }
       // Vote-Zähler race-sicher aus beiden Flags ableiten
       var votes=(r.host_next_voted?1:0)+(r.guest_next_voted?1:0);
       if(votes!==S.nextVotes){S.nextVotes=votes;updateNextVoteUI();}
@@ -2054,6 +2087,19 @@ function showVsLeftMessage(name){
   if(S.heartbeatInterval){clearInterval(S.heartbeatInterval);S.heartbeatInterval=null;}
 }
 
+// Zentrale, drift-sichere "Gegner fertig"-Erkennung. Wird von ZWEI unabhängigen Pollern aufgerufen
+// (Spectate-Poll 700ms + Haupt-Poll 1500ms) → ein einzelner verpasster Tick lässt niemanden hängen.
+function vsHandleOpponentState(theirScores,theirGuess){
+  if(!S.isVs||S.vsTheirDone)return;
+  if(!S._vsWaitForLen)return;                                  // ich habe diese Runde noch nicht abgegeben
+  if(!$('result-screen').classList.contains('active'))return;
+  theirScores=theirScores||[];
+  if(theirScores.length>=S._vsWaitForLen){
+    S.vsTheirDone=true;S.vsTheirScores=theirScores;
+    if(theirGuess&&(typeof theirGuess.round==='undefined'||theirGuess.round===S.round))S.vsTheirGuessLatLng=theirGuess;
+    onOpponentDone();
+  }
+}
 function startSpectatePoll(){
   stopSpectatePoll();S.vsTheirDone=false;
   S.vsSpecPollInterval=setInterval(async function(){
@@ -2062,15 +2108,9 @@ function startSpectatePoll(){
       var theirScoreKey=S.vsIsHost?'guest_scores':'host_scores',theirGuessKey=S.vsIsHost?'guest_guess_latlng':'host_guess_latlng';
       var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select='+theirScoreKey+','+theirGuessKey);
       if(!rows||!rows[0])return;var r=rows[0];
-      var theirScores=r[theirScoreKey]||[];
-      if(theirScores.length>S.round&&!S.vsTheirDone){
-        S.vsTheirDone=true;S.vsTheirScores=theirScores;var tg=r[theirGuessKey];
-        if(tg&&typeof tg.round!=='undefined'&&tg.round===S.round)S.vsTheirGuessLatLng=tg;
-        else if(tg&&typeof tg.round==='undefined')S.vsTheirGuessLatLng=tg;
-        onOpponentDone();return;
-      }
+      vsHandleOpponentState(r[theirScoreKey],r[theirGuessKey]);
     }catch(e){}
-  },900);
+  },700);
 }
 function stopSpectatePoll(){if(S.vsSpecPollInterval){clearInterval(S.vsSpecPollInterval);S.vsSpecPollInterval=null;}}
 
@@ -2092,7 +2132,7 @@ function onOpponentDone(){
 
 var _submitCountdownInterval=null;
 function startSubmitCountdown(){
-  clearSubmitCountdown();var secs=45;var lbl=$('vs-submit-countdown');
+  clearSubmitCountdown();var secs=25;var lbl=$('vs-submit-countdown');
   if(lbl){lbl.textContent='Warte auf Gegner… ('+secs+'s)';lbl.classList.add('show');}
   _submitCountdownInterval=setInterval(function(){
     secs--;
