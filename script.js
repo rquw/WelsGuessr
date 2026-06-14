@@ -906,7 +906,7 @@ function showSurvivalScoreReveal(pts,threshold,onDone){
   thresholdLabelBar.style.cssText='position:absolute;left:'+markerPct+'%;transform:translateX(-50%);bottom:100%;margin-bottom:3px;white-space:nowrap;font-size:.58rem;color:#c9a84c;pointer-events:none;';
   _spawnScoreFlames(overlay,null,passed);
   overlay.classList.add('show');
-  var startTime=performance.now(),DUR=2000;
+  var startTime=performance.now(),DUR=2000,_srLastClick=0,_srLastVal=0;
   function tick(now){
     var t=Math.min((now-startTime)/DUR,1),ease=1-Math.pow(1-t,3),cur=Math.round(ease*pts);
     numEl.textContent=fmtN(cur);
@@ -916,7 +916,11 @@ function showSurvivalScoreReveal(pts,threshold,onDone){
       numEl.classList.add('passed'); numEl.style.animation='sNumPop .55s cubic-bezier(.16,1,.3,1) both';
       _extinguishFlames(overlay);
     }
-    if(t<1){requestAnimationFrame(tick);}
+    if(t<1){
+      // "drrr": mechanische Klicks während die Punkte hochzählen (ein Klick je +1-Sprung)
+      if(cur>_srLastVal&&(now-_srLastClick)>=26){ _srLastClick=now; _srLastVal=cur; if(!(typeof VOL!=='undefined'&&VOL===0))tone(340+t*260+(Math.random()*30-15),'square',0.015,0.045*(0.6+0.4*(1-t)),0,0); }
+      requestAnimationFrame(tick);
+    }
     else{
       numEl.textContent=fmtN(pts); barFill.style.width=Math.min(pts/5000*100,100)+'%';
       if(passed){numEl.classList.add('passed');barFill.classList.add('passed');verdictEl.textContent='Schwelle geschafft! 🔥';verdictEl.classList.add('show','passed');}
@@ -976,6 +980,8 @@ function submitGuess(){
   var loc=S.current,actual=getActualLatLng(loc);
   var dist=haversine(S.guessLatLng.lat,S.guessLatLng.lng,actual.lat,actual.lng);
   var pts=calcPts(dist);
+  // Entwickler-Cheat: in Hitzewelle mit gehaltener W-Taste automatisch die Schwelle schaffen
+  if(S.mode==='survival'&&isDevAccount()&&_wKeyDown){ pts=Math.max(pts,getSurvivalThreshold(S.round)); }
   S.score+=pts; S.roundScores.push({round:S.round+1,dist:dist,pts:pts});
   $('res-dist').textContent=fmtD(dist); $('res-pts').textContent='0'; $('res-total').textContent=fmtN(S.score);
   var isLast=S.round>=S.roundsTotal-1;
@@ -2566,12 +2572,13 @@ function _playAchievementSound(){
   tone(freq*1.5,'sine',.07,.05,0,.13);
 }
 
-// K-Taste: Test-Achievement (zählt nicht, wird nicht gespeichert)
-document.addEventListener('keydown',function(e){
-  if(e.key==='k'||e.key==='K'){
-    showAchievementToast({icon:'🧪',title:'Test-Achievement',desc:'Nur zum Ausprobieren, zählt nicht!'});
-  }
-});
+// Entwickler-Erkennung (Accounts mit Entwickler-Badge)
+function isDevAccount(){ return !!(S.isLoggedIn && S.loggedInName && S.loggedInName.toLowerCase()==='fabio'); }
+// 'W' gedrückt-halten verfolgen (für Entwickler-Cheat in Hitzewelle)
+var _wKeyDown=false;
+document.addEventListener('keydown',function(e){ if(e.key==='w'||e.key==='W')_wKeyDown=true; });
+document.addEventListener('keyup',function(e){ if(e.key==='w'||e.key==='W')_wKeyDown=false; });
+window.addEventListener('blur',function(){ _wKeyDown=false; });
 
 // ── MEHR GUESSR DROPDOWN ──
 function toggleMehrGuessr(e){
