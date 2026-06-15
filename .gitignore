@@ -8,3 +8,12 @@ data.js.bak*
 # macOS
 .DS_Store
 **/.DS_Store
+
+# Panorama-Bilder liegen auf Cloudinary (CDN), nicht mehr im Git-Repo
+images/
+# Doppelter Bilder-Ordner (lokale Kopie, gehört NICHT ins Repo)
+aa/
+
+# Cloudinary-Upload-Hilfsdateien
+.cloudinary-uploaded.log
+node_modules/

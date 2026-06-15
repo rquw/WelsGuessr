@@ -314,15 +314,22 @@ function setBackdrop(imgSrc){
   if(!imgSrc){bd.classList.remove('show');bd.style.backgroundImage='';return;}
   bd.style.backgroundImage='url('+imgSrc+')'; bd.classList.add('show');
 }
+// ── Bild-CDN (Cloudinary, kostenlos) ──
+// Panorama-Bilder liegen NICHT mehr im Git-Repo, sondern auf Cloudinary (Original-Auslieferung, keine Transformationen).
+// >>> Nach dem Cloudinary-Signup hier den eigenen Cloud-Namen eintragen: <<<
+var CLOUDINARY_CLOUD='dr7qhc0hn';
+var IMG_BASE='https://res.cloudinary.com/'+CLOUDINARY_CLOUD+'/image/upload/welsguessr/';
+function panoFace(id,h){ return IMG_BASE+id+'_h'+String(h).padStart(3,'0')+'.jpg'; }
+function panoThumb(id){ return IMG_BASE+id+'_h000.jpg'; }
 function getRandomLocationImage(){
   if(!Array.isArray(LOCATIONS)||!LOCATIONS.length)return null;
   var loc=LOCATIONS[Math.floor(Math.random()*LOCATIONS.length)];
-  return 'images/'+loc.id+'_h000.jpg';
+  return panoThumb(loc.id);
 }
 function getDailyLocationImage(){
   var key=getViennaDateKey(), loc=getDailyLocationForKey(key);
   if(!loc)return getRandomLocationImage();
-  return 'images/'+loc.id+'_h000.jpg';
+  return panoThumb(loc.id);
 }
 
 // ── Helpers ──
@@ -346,14 +353,14 @@ function setMenuCardBackdrops(){
   if(!Array.isArray(LOCATIONS)||!LOCATIONS.length)return;
   var getRand=function(){return LOCATIONS[Math.floor(Math.random()*LOCATIONS.length)];};
   ['solo-card-bg','vs-card-bg','survival-card-bg'].forEach(function(id){
-    var el=$(id); if(!el)return; el.style.backgroundImage='url(images/'+getRand().id+'_h000.jpg)';
+    var el=$(id); if(!el)return; el.style.backgroundImage='url('+panoThumb(getRand().id)+')';
   });
   var dailyBg=$('daily-card-bg');
-  if(dailyBg){var dloc=getDailyLocationForKey(getViennaDateKey());if(dloc)dailyBg.style.backgroundImage='url(images/'+dloc.id+'_h000.jpg)';}
+  if(dailyBg){var dloc=getDailyLocationForKey(getViennaDateKey());if(dloc)dailyBg.style.backgroundImage='url('+panoThumb(dloc.id)+')';}
   var dpBg=$('daily-preview-bg');
   if(dpBg){
     var dLoc2=getDailyLocationForKey(getViennaDateKey());
-    if(dLoc2){var src2='images/'+dLoc2.id+'_h000.jpg';dpBg.style.backgroundImage='url('+src2+')';var img=new Image();img.onload=function(){dpBg.classList.add('loaded');};img.src=src2;}
+    if(dLoc2){var src2=panoThumb(dLoc2.id);dpBg.style.backgroundImage='url('+src2+')';var img=new Image();img.onload=function(){dpBg.classList.add('loaded');};img.src=src2;}
   }
 }
 
@@ -557,13 +564,13 @@ function loadPano(loc){
   S.panoLoadFailed=false; S.panoZoom=1; S.panoVOff=0; updatePanoZoom();
   var errors=0;
   [0,90,180,270].forEach(function(h){
-    var src='images/'+loc.id+'_h'+String(h).padStart(3,'0')+'.jpg';
+    var src=panoFace(loc.id,h);
     var img=new Image(); img.src=src;
     img.onerror=function(){errors++;if(errors===4){S.panoLoadFailed=true;setTimeout(function(){skipToNextLocation();},400);}};
   });
   [0,90,180,270,0,90,180,270].forEach(function(h){
     var img=document.createElement('img');
-    img.src='images/'+loc.id+'_h'+String(h).padStart(3,'0')+'.jpg';
+    img.src=panoFace(loc.id,h);
     img.draggable=false; img.oncontextmenu=function(e){e.preventDefault();}; strip.appendChild(img);
   });
   S.panoAngle=0; setTimeout(updatePano,60);
@@ -628,6 +635,7 @@ function initPanoDrag(){
   var el=$('pano-container');
   el.onmousedown=function(e){
     if(e.button!==0)return;
+    if(S.mpNoLook)return;   // Modifier "nicht umsehen"
     resumeAC(); S.isDragging=true; S.dragStartX=e.clientX; S.dragStartAngle=S.panoAngle;
     el.style.cursor='grabbing'; e.preventDefault();
   };
@@ -642,6 +650,7 @@ function initPanoDrag(){
   var pinch=null; // {dist, zoom, midX, angle}
   function touchDist(t){var dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
   el.ontouchstart=function(e){
+    if(S.mpNoLook)return;   // Modifier "nicht umsehen"
     resumeAC();
     if(e.touches.length>=2){
       S.isDragging=false;
@@ -668,6 +677,7 @@ function initPanoDrag(){
   el.ontouchend=function(e){if(!e.touches||e.touches.length<2)pinch=null;if(!e.touches||e.touches.length===0)S.isDragging=false;};
   // Wheel/Trackpad: seitwärts (2 Finger) = drehen, vertikal/Pinch = zoomen
   el.addEventListener('wheel',function(e){
+    if(S.mpNoLook){e.preventDefault();return;}   // Modifier "nicht umsehen"
     resumeAC();
     if(e.ctrlKey){ // Trackpad-Pinch: an Cursor zoomen
       zoomPanoAtPoint(S.panoZoom*(1-e.deltaY*0.012),e.clientX,e.clientY); e.preventDefault(); return;
@@ -953,6 +963,10 @@ function loadRound(){
   S.current=S.locations[S.round];
   $('round-num').textContent=S.round+1; $('score-display').textContent=fmtN(S.score);
   hideSkipPanoBtn();
+  // Mehrspieler: Modifiers + Rundenuhr anwenden; Solo: Weiter-Button sichtbar
+  var _nb=$('next-btn'); if(_nb)_nb.style.display=S.isVs?'none':'';
+  if(S.isVs&&typeof applyMpModifiers==='function'){applyMpModifiers();mpStartRoundClock();}
+  else{if(typeof mpClearMods==='function')mpClearMods();}
   var _og=$('vs-opponent-guessed');if(_og){_og.classList.remove('show');if(_og._t)clearTimeout(_og._t);}
   // difficulty badge sofort auf 'Unbestimmt' setzen, dann nachladen
   var diffBadgeEl=document.getElementById('top-bar-diff');
@@ -1004,14 +1018,7 @@ function submitGuess(){
       survivalThresholdEl.classList.add('show');
     }
   }
-  if(S.isVs){
-    vsLog('eigener Tipp abgegeben ('+fmtN(pts)+' Pkt.) → warte auf Gegner');
-    // Warte-Ziel synchron setzen: Gegner gilt als fertig, sobald seine Score-Liste so lang ist wie meine jetzt.
-    S._vsWaitForLen=S.round+1; S._vsLastPts=pts; S._vsLastGuess={lat:S.guessLatLng.lat,lng:S.guessLatLng.lng}; S._vsRepushing=false;
-    pushVsScore(pts,S.guessLatLng);
-    setTimeout(function(){showVsWaitOverlay(true);},1000);
-    $('vs-bottom-wait').classList.add('show');startSpectatePoll();startSubmitCountdown();
-  }
+  if(S.isVs){ mpOnSubmit(pts); }
   if(S.mode==='survival'){
     showSurvivalScoreReveal(pts,getSurvivalThreshold(S.round),function(){
       show('result-screen'); initResultMap(loc,S.guessLatLng);
@@ -1043,7 +1050,7 @@ function submitGuess(){
 }
 
 function initResultMap(loc,guess){
-  $('result-screen').classList.toggle('vs-mode',!!S.isVs); // VS: Zwischenauswertung entschlacken
+  $('result-screen').classList.toggle('mp-mode',!!S.isVs); // Mehrspieler: nur Solo-Elemente ausblenden, Ergebnis-Panel behalten
   if(S.resultMap){S.resultMap.remove();S.resultMap=null;}
   var actual=getActualLatLng(loc);
   S.resultMap=L.map('result-map-el',{center:[(actual.lat+guess.lat)/2,(actual.lng+guess.lng)/2],zoom:14,zoomControl:true,attributionControl:false});
@@ -1126,10 +1133,10 @@ function showFinal(){
     bd.appendChild(row);
     setTimeout(function(el){return function(){el.classList.add('in');};}(row),400+i*100);
   });
-  if(S.isVs)showVsFinalResult();
+  if(S.isVs)mpShowFinal();
   if(S.mode==='daily')updateStreak(S.dailyKey);
-  if(S.isLoggedIn&&!S.hasSavedThisRun&&!soloRanked){
-    // soloRanked speichert erst im Rang-Panel (nach Erfassen des alten Stands)
+  if(S.isLoggedIn&&!S.hasSavedThisRun&&!soloRanked&&!S.isVs){
+    // soloRanked speichert erst im Rang-Panel; Mehrspieler-Punkte gehören NICHT in die Solo-Bestenliste
     S.pendingSaveTarget=S.mode==='daily'?'daily':'global';
     setTimeout(function(){autoSaveLoggedInUser();},800);
   }
@@ -1849,518 +1856,712 @@ function closeQrScanner(){
   if(window._qrScanOverlay){window._qrScanOverlay.remove();window._qrScanOverlay=null;}
 }
 
-// ── VS Mode ──
+// ── Mehrspieler (Lobby, N Spieler) ──
+// Geteilte Tabellen rooms + room_players (eine Zeile pro Spieler → keine Clobber-Races).
+// Jeder Client schreibt NUR seine eigene room_players-Zeile; der Host besitzt den rooms-Zustand.
+var VS_WINS_KEY='wg_vs_wins';   // pro Repo: wg_/sg_
+
+function ensurePlayerId(){
+  if(S.playerId)return S.playerId;
+  var id='';try{id=localStorage.getItem('pg_player_id')||'';}catch(e){}
+  if(!id){id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('p'+Math.random().toString(36).slice(2)+Date.now().toString(36));try{localStorage.setItem('pg_player_id',id);}catch(e){}}
+  S.playerId=id;return id;
+}
+function mpOnline(p){ return p&&!p.kicked&&p.online&&p.last_seen&&(Date.now()-new Date(p.last_seen).getTime())<9000; }
+function mpInMatch(players){ return (players||[]).filter(function(p){return !p.kicked;}); }
+function mpPlayerCount(){ return mpInMatch(S.mpPlayers).filter(function(p){return mpOnline(p);}).length; }
+function _pq(){ return 'room_players?room_id=eq.'+S.vsRoom+'&player_id=eq.'+encodeURIComponent(S.playerId); }
+
+// ── Modal: erstellen / beitreten ──
 function openVsModal(){
+  ensurePlayerId();
   var session=loadSession();
-  if(session.name){
-    var h=$('vs-host-name'); if(h)h.value=session.name;
-    var j=$('vs-join-name'); if(j)j.value=session.name;
-  }
+  if(session.name){var h=$('vs-host-name');if(h)h.value=session.name;}
   showVsChoice();
   openModal('vs-modal');
 }
-
 function showVsChoice(){
-  $('vs-choice-btns').style.display='flex';
-  $('vs-create-panel').style.display='none';
-  $('vs-join-panel').style.display='none';
-  var backBtn=$('vs-modal-back-btn');if(backBtn)backBtn.style.display='none';
+  var ch=$('vs-choice-btns');if(ch)ch.style.display='flex';
+  var jp=$('vs-join-panel');if(jp)jp.style.display='none';
+  var b=$('vs-modal-back-btn');if(b)b.style.display='none';
 }
-
 function showVsPanel(which){
   $('vs-choice-btns').style.display='none';
-  var backBtn=$('vs-modal-back-btn');if(backBtn)backBtn.style.display='block';
-  if(which==='create'){
-    $('vs-create-panel').style.display='flex';
-    $('vs-join-panel').style.display='none';
-    // sofort erstellen ohne weiteren klick
-    createRoom();
-  } else {
-    $('vs-create-panel').style.display='none';
-    $('vs-join-panel').style.display='flex';
-    setTimeout(function(){var c=$('vs-join-code');if(c)c.focus();},100);
-  }
+  var b=$('vs-modal-back-btn');if(b)b.style.display='block';
+  // nur noch das Beitreten-Panel; Erstellen geht direkt in die Lobby (Einstellungen dort)
+  $('vs-join-panel').style.display='flex';
+  // ohne Account: Namensfeld zeigen
+  var nm=$('vs-join-name');if(nm)nm.style.display=loadSession().name?'none':'block';
+  loadRoomList();
 }
+// Liste offener Räume
+async function loadRoomList(){
+  var el=$('vs-room-list');if(!el)return;
+  el.innerHTML='<div class="mp-empty">Lade…</div>';
+  try{
+    var rows=await sbFetch('rooms?status=eq.lobby&select=id,host_name,rounds,max_players,room_players(player_id,kicked,online,last_seen)&order=last_activity.desc&limit=40');
+    var open=(rows||[]).map(function(r){
+      var ps=(r.room_players||[]).filter(function(p){return !p.kicked&&p.online&&p.last_seen&&(Date.now()-new Date(p.last_seen).getTime())<12000;});
+      return {id:r.id,host:r.host_name,n:ps.length,max:r.max_players,rounds:r.rounds};
+    }).filter(function(r){return r.n>0&&(!r.max||r.n<r.max);});
+    if(!open.length){el.innerHTML='<div class="mp-empty">Keine offenen Räume – erstelle selbst einen!</div>';return;}
+    el.innerHTML=open.map(function(r){
+      return '<button class="mp-room-row" onclick="joinRoomFromList(\''+r.id+'\')">'+
+        '<span class="mp-room-host">'+escHtml(r.host||'Raum')+'</span>'+
+        '<span class="mp-room-meta">'+r.n+(r.max?('/'+r.max):'')+' 👤 · '+r.rounds+' Runden</span>'+
+        '<span class="mp-room-join">Beitreten →</span></button>';
+    }).join('');
+  }catch(e){el.innerHTML='<div class="mp-empty">Fehler beim Laden.</div>';}
+}
+async function joinRoomFromList(code){
+  var session=loadSession();
+  var name=session.name||(($('vs-join-name')&&$('vs-join-name').value)||'').trim();
+  if(!name){var e=$('vs-join-error');if(e)e.textContent='Bitte zuerst deinen Namen eingeben.';var nm=$('vs-join-name');if(nm){nm.style.display='block';nm.focus();}return;}
+  var res=await mpJoinByCode(code,name);
+  if(res.error){var er=$('vs-join-error');if(er)er.textContent=res.error;loadRoomList();return;}
+  closeModal('vs-modal');enterLobby();
+}
+// Host ändert Einstellungen live in der Lobby
+function mpHostUpdateSettings(){
+  if(!S.vsIsHost||!S.vsRoom)return;
+  var rounds=Math.max(1,Math.min(20,parseInt(($('mp-rounds')&&$('mp-rounds').value)||'5',10)||5));
+  var maxRaw=(($('mp-maxplayers')&&$('mp-maxplayers').value)||'').trim();
+  var maxPlayers=maxRaw?Math.max(2,Math.min(50,parseInt(maxRaw,10)||2)):null;
+  var modifiers=mpReadModifiers();
+  sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{rounds:rounds,max_players:maxPlayers,modifiers:modifiers,last_activity:new Date().toISOString()}).catch(function(){});
+}
+function mpReadModifiers(){
+  function ck(id){var e=$(id);return !!(e&&e.checked);}
+  var tlOn=ck('mp-mod-timelimit');
+  var tlVal=parseInt(($('mp-timelimit-secs')&&$('mp-timelimit-secs').value)||'0',10);
+  return {noMove:ck('mp-mod-nomove'),noLook:ck('mp-mod-nolook'),grayscale:ck('mp-mod-gray'),blur:ck('mp-mod-blur'),timeLimit:(tlOn&&tlVal>0)?tlVal:null};
+}
+
 var roomCreationInProgress=false;
 async function createRoom(){
   if(roomCreationInProgress)return;
+  ensurePlayerId();
   var session=loadSession();
-  var name=session.name||'Spieler';
+  var name=session.name||(($('vs-host-name')&&$('vs-host-name').value)||'').trim()||'Spieler';
+  // Standard-Einstellungen; der Host passt sie danach live in der Lobby an
+  var rounds=5, maxPlayers=null, modifiers={noMove:false,noLook:false,grayscale:false,blur:false,timeLimit:null};
   roomCreationInProgress=true;
-  var code=randomCode(),locs=shuffle(LOCATIONS.slice()).slice(0,5).map(function(l){return l.id;});
+  var code=randomCode();
   try{
-    await sbFetch('rooms','POST',{id:code,host_name:name,location_ids:locs,host_scores:[],guest_scores:[],host_done:false,guest_done:false,host_guess_latlng:null,guest_guess_latlng:null,host_pano_angle:0,guest_pano_angle:0,host_map_cursor:null,guest_map_cursor:null,next_votes:0,play_again_votes:0,host_online:true,guest_online:false,host_next_voted:false,guest_next_voted:false,host_play_again_voted:false,guest_play_again_voted:false,current_round:0,host_last_seen:new Date().toISOString(),last_activity:new Date().toISOString()});
-    S.vsRoom=code;S.vsIsHost=true;S.vsMyName=name;S.vsMyScores=[];S.vsTheirScores=[];closeModal('vs-modal');
-    $('vs-room-code').textContent=code;drawQR($('vs-qr-canvas'),window.location.origin+window.location.pathname+'?join='+code);openModal('vs-wait-modal');pollForGuest();
+    await sbFetch('rooms','POST',{id:code,host_name:name,host_id:S.playerId,status:'lobby',max_players:maxPlayers,rounds:rounds,modifiers:modifiers,current_round:0,location_ids:[],last_activity:new Date().toISOString()});
+    await sbFetch('room_players','POST',{room_id:code,player_id:S.playerId,name:name,is_host:true,ready:false,online:true,last_seen:new Date().toISOString(),scores:[]});
+    S.vsRoom=code;S.vsIsHost=true;S.vsMyName=name;S.isVs=false;S._mpStarted=false;
+    closeModal('vs-modal');enterLobby();
   }catch(e){alert('Fehler beim Erstellen: '+(e&&e.message?e.message:JSON.stringify(e)));}
   finally{roomCreationInProgress=false;}
 }
-async function cancelRoom(){if(S.vsRoom)await sbFetch('rooms?id=eq.'+S.vsRoom,'DELETE').catch(function(){});S.vsRoom=null;closeModal('vs-wait-modal');}
-
-var guestPollActive=false;
-function pollForGuest(){
-  if(guestPollActive)return;guestPollActive=true;var tries=0;
-  var iv=setInterval(async function(){
-    tries++;if(tries>120){clearInterval(iv);guestPollActive=false;cancelRoom();return;}
-    try{var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=guest_name,guest_online,location_ids');
-      if(rows&&rows[0]&&rows[0].guest_name&&rows[0].guest_online){clearInterval(iv);guestPollActive=false;S.vsTheirName=rows[0].guest_name;closeModal('vs-wait-modal');startVsGame(rows[0].location_ids);}
-    }catch(e){}
-  },2500);
+async function mpJoinByCode(code,name){
+  ensurePlayerId();
+  try{
+    var rows=await sbFetch('rooms?id=eq.'+code+'&select=id,status,max_players,host_id,room_players(player_id,online,kicked)');
+    if(!rows||!rows.length)return {error:'Raum nicht gefunden.'};
+    var room=rows[0];
+    var players=room.room_players||[];
+    var mine=players.filter(function(p){return p.player_id===S.playerId;})[0];
+    if(!mine&&room.status&&room.status!=='lobby')return {error:'Spiel läuft bereits.'};
+    var active=players.filter(function(p){return !p.kicked;});
+    if(!mine&&room.max_players&&active.length>=room.max_players)return {error:'Raum ist voll.'};
+    if(mine){
+      await sbFetch(_pqFor(code)+'','PATCH',{name:name,online:true,kicked:false,last_seen:new Date().toISOString()});
+    }else{
+      await sbFetch('room_players','POST',{room_id:code,player_id:S.playerId,name:name,is_host:(room.host_id===S.playerId),ready:false,online:true,last_seen:new Date().toISOString(),scores:[]});
+    }
+    S.vsRoom=code;S.vsIsHost=(room.host_id===S.playerId);S.vsMyName=name;S.isVs=false;S._mpStarted=false;
+    return {ok:true};
+  }catch(e){return {error:'Fehler beim Beitreten.'};}
 }
+function _pqFor(code){ return 'room_players?room_id=eq.'+code+'&player_id=eq.'+encodeURIComponent(S.playerId); }
 async function joinRoom(){
   var session=loadSession();
-  var name=session.name||'Spieler';
-  var code=$('vs-join-code').value.trim().toUpperCase();
-  if(!code){$('vs-join-error').textContent='Bitte Code eingeben.';return;}$('vs-join-error').textContent='';
-  try{
-    var rows=await sbFetch('rooms?id=eq.'+code+'&select=id,host_name,location_ids,guest_name');
-    if(!rows||!rows.length){$('vs-join-error').textContent='Raum nicht gefunden.';return;}
-    if(rows[0].guest_name){$('vs-join-error').textContent='Raum ist bereits voll.';return;}
-    await sbFetch('rooms?id=eq.'+code,'PATCH',{guest_name:name,guest_online:true,last_activity:new Date().toISOString()});
-    S.vsRoom=code;S.vsIsHost=false;S.vsMyName=name;S.vsTheirName=rows[0].host_name;S.vsTheirScores=[];S.vsMyScores=[];closeModal('vs-modal');startVsGame(rows[0].location_ids);
-  }catch(e){$('vs-join-error').textContent='Fehler beim Beitreten.';}
+  var name=session.name||(($('vs-join-name')&&$('vs-join-name').value)||'').trim()||'Spieler';
+  var code=($('vs-join-code').value||'').trim().toUpperCase();
+  if(!code){$('vs-join-error').textContent='Bitte Code eingeben.';return;}
+  $('vs-join-error').textContent='';
+  var res=await mpJoinByCode(code,name);
+  if(res.error){$('vs-join-error').textContent=res.error;return;}
+  closeModal('vs-modal');enterLobby();
 }
 
-// ── Deep link ──
+// ── Deep link / QR ──
 function checkDeepLink(){
   var params=new URLSearchParams(window.location.search),joinCode=params.get('join');
   if(joinCode&&joinCode.length===6){
     S.qrPendingCode=joinCode.toUpperCase();window.history.replaceState({},'',window.location.pathname);
     var session=loadSession();
     setTimeout(function(){
-      if(session.name&&session.pwHash)autoQrJoin(S.qrPendingCode,session.name);
-      else{$('qr-join-room-code').textContent='Raum: '+S.qrPendingCode;$('qr-join-name-input').value=session.name||'';show('qr-join-screen');if(!session.name)setTimeout(function(){$('qr-join-name-input').focus();},400);}
+      if(session.name){autoQrJoin(S.qrPendingCode,session.name);}
+      else{$('qr-join-room-code').textContent='Raum: '+S.qrPendingCode;var n=$('qr-join-name-input');if(n)n.value=session.name||'';show('qr-join-screen');setTimeout(function(){if(n)n.focus();},400);}
     },300);
   }
 }
 async function autoQrJoin(code,name){
-  try{
-    var rows=await sbFetch('rooms?id=eq.'+code+'&select=id,host_name,location_ids,guest_name');
-    if(!rows||!rows.length){$('qr-join-room-code').textContent='Raum: '+code;$('qr-join-name-input').value=name;$('qr-join-error').textContent='Raum nicht gefunden.';show('qr-join-screen');return;}
-    if(rows[0].guest_name){$('qr-join-room-code').textContent='Raum: '+code;$('qr-join-name-input').value=name;$('qr-join-error').textContent='Raum ist bereits voll.';show('qr-join-screen');return;}
-    await sbFetch('rooms?id=eq.'+code,'PATCH',{guest_name:name,guest_online:true,last_activity:new Date().toISOString()});
-    S.vsRoom=code;S.vsIsHost=false;S.vsMyName=name;S.vsTheirName=rows[0].host_name;S.vsTheirScores=[];S.vsMyScores=[];startVsGame(rows[0].location_ids);
-  }catch(e){$('qr-join-room-code').textContent='Raum: '+code;$('qr-join-name-input').value=name;$('qr-join-error').textContent='Fehler beim Beitreten.';show('qr-join-screen');}
+  var res=await mpJoinByCode(code,name);
+  if(res.error){$('qr-join-room-code').textContent='Raum: '+code;var n=$('qr-join-name-input');if(n)n.value=name;$('qr-join-error').textContent=res.error;show('qr-join-screen');return;}
+  enterLobby();
 }
 async function qrJoinSubmit(){
-  var name=$('qr-join-name-input').value.trim(),code=S.qrPendingCode;
-  if(!name){$('qr-join-error').textContent='Bitte deinen Namen eingeben.';return;}if(!code){goToStart();return;}$('qr-join-error').textContent='';
-  try{
-    var rows=await sbFetch('rooms?id=eq.'+code+'&select=id,host_name,location_ids,guest_name');
-    if(!rows||!rows.length){$('qr-join-error').textContent='Raum nicht gefunden.';return;}
-    if(rows[0].guest_name){$('qr-join-error').textContent='Raum ist bereits voll.';return;}
-    await sbFetch('rooms?id=eq.'+code,'PATCH',{guest_name:name,guest_online:true,last_activity:new Date().toISOString()});
-    S.vsRoom=code;S.vsIsHost=false;S.vsMyName=name;S.vsTheirName=rows[0].host_name;S.vsTheirScores=[];S.vsMyScores=[];startVsGame(rows[0].location_ids);
-  }catch(e){$('qr-join-error').textContent='Fehler beim Beitreten.';}
+  var name=($('qr-join-name-input').value||'').trim();
+  if(!name){$('qr-join-error').textContent='Bitte Namen eingeben.';return;}
+  var res=await mpJoinByCode(S.qrPendingCode,name);
+  if(res.error){$('qr-join-error').textContent=res.error;return;}
+  enterLobby();
 }
 
-function startVsGame(locIds){
-  resetScoreSavedUI();S.mode='vs';S.roundsTotal=5;resetBaseState();S.isVs=true;S._vsCounted=false;S.vsTheirScores=[];S.vsMyScores=[];S.skippedLocations=new Set();
-  // VS-Sync-State frisch
-  S.vsLeftShown=false;S._vsAdvanceLock=false;S._lastVsAdvanceAt=0;S._vsWaitForLen=0;S._vsRepushing=false;S._vsLastGuess=null;if(S._leftGraceTimer){clearTimeout(S._leftGraceTimer);S._leftGraceTimer=null;}hideDcNotice();
-  S.locations=locIds.map(function(id){return LOCATIONS.find(function(l){return l.id===id;});}).filter(Boolean);
-  $('vs-badge').style.display='block';$('vs-badge').textContent='VS '+S.vsTheirName;
-  $('vs-strip').style.display='block';$('vs-strip-you').textContent=S.vsMyName;$('vs-strip-them').textContent=S.vsTheirName;$('round-total').textContent='5';
-  vsLog('VS-Spiel gestartet (Host='+S.vsIsHost+', Gegner='+S.vsTheirName+')');
-  sfx.start();show('game-screen');var _hb=$('back-to-home-btn');if(_hb)_hb.style.display='none';initPanoDrag();loadRound();startVsPoll();startHeartbeat();
+// ── Lobby ──
+function enterLobby(){
+  ensurePlayerId();
+  show('mp-lobby-screen');
+  var cd=$('mp-lobby-code');if(cd)cd.textContent=S.vsRoom;
+  try{var qc=$('mp-lobby-qr');if(qc)drawQR(qc,window.location.origin+window.location.pathname+'?join='+S.vsRoom);}catch(e){}
+  S._mpSettingsInit=false;S._mpStarting=false;
+  var rb=$('mp-ready-btn');if(rb){rb.disabled=false;rb.textContent='Bereit';rb.classList.remove('is-ready');}
+  startMpPoll();startMpHeartbeat();
 }
-
-// Score in den Raum schreiben. Idempotent (setzt den Slot der Runde statt anzuhängen) und mit
-// Retry — so geht ein einzelner verlorener PATCH (flaky Mobilfunknetz) nicht verloren und der
-// Gegner hängt nicht ewig in "warte auf Gegner". Self-Heal (Haupt-Poll) ruft das ggf. erneut auf.
-async function pushVsScore(pts,guessLL){
-  var myKey=S.vsIsHost?'host_scores':'guest_scores',gKey=S.vsIsHost?'host_guess_latlng':'guest_guess_latlng';
-  var roundIdx=S.round;
-  for(var attempt=0;attempt<5;attempt++){
-    try{
-      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_scores,guest_scores');
-      if(!rows||!rows[0])return false;
-      var cur=(rows[0][myKey]||[]).slice();
-      cur[roundIdx]=pts;                                  // Slot setzen → kein Doppeleintrag bei Retry/Self-Heal
-      for(var i=0;i<cur.length;i++){if(cur[i]==null)cur[i]=0;}
-      var isLast=roundIdx>=S.roundsTotal-1,patch={};
-      patch[myKey]=cur;patch[gKey]={lat:guessLL.lat,lng:guessLL.lng,round:roundIdx};
-      patch[S.vsIsHost?'host_done':'guest_done']=isLast;
-      patch[S.vsIsHost?'host_next_voted':'guest_next_voted']=false;patch[S.vsIsHost?'guest_next_voted':'host_next_voted']=false;
-      patch.next_votes=0;patch.last_activity=new Date().toISOString();
-      await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',patch);
-      vsLog('Score gepusht (Runde '+(roundIdx+1)+', Versuch '+(attempt+1)+')');
-      return true;
-    }catch(e){ await new Promise(function(r){setTimeout(r,500);}); }
+function renderLobby(room,players){
+  var mod=room.modifiers||{};
+  // Einstellungs-Controls: Host darf bearbeiten (nur einmal initial befüllen, sonst tippt man dagegen an);
+  // Gäste sehen sie schreibgeschützt und gespiegelt.
+  var host=S.vsIsHost;
+  function setVal(id,v){var e=$(id);if(e&&document.activeElement!==e)e.value=v;}
+  function setChk(id,v){var e=$(id);if(e)e.checked=!!v;}
+  function setDis(id,d){var e=$(id);if(e)e.disabled=d;}
+  if(!host){
+    setVal('mp-rounds',room.rounds||5);
+    setVal('mp-maxplayers',room.max_players||'');
+    setChk('mp-mod-nomove',mod.noMove);setChk('mp-mod-nolook',mod.noLook);setChk('mp-mod-gray',mod.grayscale);setChk('mp-mod-blur',mod.blur);
+    setChk('mp-mod-timelimit',!!mod.timeLimit);setVal('mp-timelimit-secs',mod.timeLimit||30);
+  } else if(!S._mpSettingsInit){
+    S._mpSettingsInit=true;
+    setVal('mp-rounds',room.rounds||5);setVal('mp-maxplayers',room.max_players||'');
+    setChk('mp-mod-nomove',mod.noMove);setChk('mp-mod-nolook',mod.noLook);setChk('mp-mod-gray',mod.grayscale);setChk('mp-mod-blur',mod.blur);
+    setChk('mp-mod-timelimit',!!mod.timeLimit);setVal('mp-timelimit-secs',mod.timeLimit||30);
   }
-  vsLog('Score-Push fehlgeschlagen nach 5 Versuchen');
-  return false;
-}
-
-// Gemeinsamer Rundenzeiger: beide Clients laden dieselbe Runde, sobald current_round steigt → gleichzeitiger Start
-function goToVsRound(targetRound){
-  if(!S.isVs)return;
-  if(targetRound<=S.round)return;
-  if(Date.now()-(S._lastVsAdvanceAt||0)<800)return;
-  S._lastVsAdvanceAt=Date.now();
-  vsLog('goToVsRound → '+(targetRound+1)+'/'+S.roundsTotal);
-  clearNextVoteTimers();hideVsWaitOverlay();stopSpectatePoll();clearSubmitCountdown();
-  $('vs-bottom-wait').classList.remove('show');$('next-vote-bar').classList.remove('show');
-  S.myNextVoted=false;S.nextVotes=0;S.vsTheirDone=false;S.vsTheirGuessLatLng=null;
-  S._vsWaitForLen=0;S._vsRepushing=false;S._vsLastGuess=null;
-  var row=$('vs-their-guess-row');if(row){row.style.display='none';row.innerHTML='';}
-  var nb=$('next-btn');if(nb)nb.disabled=true;
-  S.round=targetRound;
-  if(S.round>=S.roundsTotal){sfx.next();showFinal();}
-  else{sfx.next();show('game-screen');loadRound();}
-}
-// Host ist Advance-Autorität: setzt current_round vorwärts, sobald beide bereit sind (oder per Timer erzwungen)
-async function vsAdvanceIfHost(force){
-  if(!S.isVs||!S.vsIsHost)return;
-  if(S._vsAdvanceLock)return;
-  if(!$('result-screen').classList.contains('active'))return;
-  try{
-    var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_next_voted,guest_next_voted,host_scores,guest_scores,current_round');
-    var r=rows&&rows[0];if(!r)return;
-    if((r.current_round||0)>S.round)return;
-    var bothVoted=r.host_next_voted&&r.guest_next_voted;
-    var bothDone=(r.host_scores||[]).length>S.round&&(r.guest_scores||[]).length>S.round;
-    // NIE vorrücken, solange nicht beide diese Runde abgegeben haben (sonst wird ein noch ratender Gegner übersprungen).
-    // 'force' (Auto-Timer) überspringt nur die Vote-Pflicht, nicht die Abgabe-Pflicht.
-    if(bothDone&&(bothVoted||force)){
-      S._vsAdvanceLock=true;
-      await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{current_round:S.round+1,next_votes:0,host_next_voted:false,guest_next_voted:false});
-      setTimeout(function(){S._vsAdvanceLock=false;},1500);
-    }
-  }catch(e){}
-}
-// Präsenz: Gegner gilt als weg, wenn sein last_seen zu alt ist (Heartbeat alle 3s). ~8s Stale + ~8s Gnadenfrist.
-function vsCheckPresence(r){
-  if(S.vsLeftShown)return;
-  var theirSeenKey=S.vsIsHost?'guest_last_seen':'host_last_seen';
-  var seen=r[theirSeenKey];
-  var stale=!seen||(Date.now()-new Date(seen).getTime())>8000;
-  if(stale){
-    if(!S._leftGraceTimer){
-      showDcNotice(S.vsTheirName+' ist gerade weg…');
-      S._leftGraceTimer=setTimeout(function(){
-        S._leftGraceTimer=null;
-        if(!S.vsLeftShown){S.vsLeftShown=true;showVsLeftMessage(S.vsTheirName);}
-      },8000);
-    }
-  } else {
-    if(S._leftGraceTimer){clearTimeout(S._leftGraceTimer);S._leftGraceTimer=null;}
-    hideDcNotice();
+  ['mp-rounds','mp-maxplayers','mp-mod-nomove','mp-mod-nolook','mp-mod-gray','mp-mod-blur','mp-mod-timelimit','mp-timelimit-secs'].forEach(function(id){setDis(id,!host);});
+  var lock=$('mp-settings-lock');if(lock)lock.textContent=host?'':'(nur Host)';
+  var online=mpInMatch(players).filter(function(p){return mpOnline(p)||p.player_id===S.playerId;});
+  var cnt=$('mp-lobby-count');if(cnt)cnt.textContent='('+online.length+')';
+  var list=$('mp-lobby-players');
+  if(list){
+    list.innerHTML=online.length?online.map(function(p){
+      var you=p.player_id===S.playerId,ph=p.player_id===room.host_id;
+      var kick=(S.vsIsHost&&!ph)?'<button class="mp-kick-btn" onclick="kickPlayer(\''+p.player_id+'\')" title="Entfernen">✕</button>':'';
+      return '<div class="mp-player-row'+(you?' me':'')+'">'+
+        '<span class="mp-player-dot'+(p.ready?' ready':'')+'"></span>'+
+        '<span class="mp-player-name">'+escHtml(p.name)+(ph?' 👑':'')+(you?' (Du)':'')+'</span>'+
+        '<span class="mp-player-status">'+(p.ready?'Bereit':'…')+'</span>'+kick+'</div>';
+    }).join(''):'<div class="mp-empty">Warte auf Spieler…</div>';
   }
+  var meRow=online.filter(function(p){return p.player_id===S.playerId;})[0];
+  var iAmReady=!!(meRow&&meRow.ready);
+  // Bereit-Button: einmalig, danach ausgegraut. Jeder (auch Host) muss bereit machen.
+  var rb=$('mp-ready-btn');
+  if(rb){ rb.textContent=iAmReady?'Bereit ✓':'Bereit'; rb.disabled=iAmReady; rb.classList.toggle('is-ready',iAmReady); }
+  var readyCount=online.filter(function(p){return p.ready;}).length;
+  var hint=$('mp-start-hint');
+  if(hint){
+    if(online.length<2) hint.textContent='Warte auf mind. 2 Spieler…';
+    else if(readyCount<online.length) hint.textContent='Bereit: '+readyCount+'/'+online.length+' – warte auf alle…';
+    else hint.textContent='Alle bereit – Start…';
+  }
+  var hc=$('mp-host-close-btn');if(hc)hc.style.display=S.vsIsHost?'':'none';
 }
+async function toggleReady(){
+  // Einweg: einmal bereit, bleibt bereit (kein Zurück), dann startet automatisch wenn alle bereit
+  try{ await sbFetch(_pq(),'PATCH',{ready:true,last_seen:new Date().toISOString()}); var rb=$('mp-ready-btn');if(rb){rb.disabled=true;rb.textContent='Bereit ✓';rb.classList.add('is-ready');} }catch(e){}
+}
+async function kickPlayer(pid){
+  if(!S.vsIsHost)return;
+  try{await sbFetch('room_players?room_id=eq.'+S.vsRoom+'&player_id=eq.'+encodeURIComponent(pid),'PATCH',{kicked:true,online:false});}catch(e){}
+}
+async function startMatch(){
+  if(!S.vsIsHost){S._mpStarting=false;return;}
+  try{
+    var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=rounds,status,room_players(player_id,ready,online,kicked,last_seen)');
+    var room=rows&&rows[0];if(!room){S._mpStarting=false;return;}
+    if(room.status!=='lobby'){return;} // schon gestartet
+    var online=(room.room_players||[]).filter(function(p){return mpOnline(p)||p.player_id===S.playerId;});
+    if(online.length<2||!online.every(function(p){return p.ready;})){S._mpStarting=false;return;}
+    var n=Math.max(1,room.rounds||5);
+    var locs=shuffle(LOCATIONS.slice()).slice(0,n).map(function(l){return l.id;});
+    await sbFetch('room_players?room_id=eq.'+S.vsRoom,'PATCH',{scores:[],guess_latlng:null,skip_vote:null});
+    await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{status:'playing',current_round:0,location_ids:locs,round_started_at:new Date().toISOString(),last_activity:new Date().toISOString()});
+  }catch(e){S._mpStarting=false;}
+}
+// Host schließt den Raum für alle
+async function hostCloseRoom(){
+  if(!S.vsIsHost||!S.vsRoom)return;
+  if(!confirm('Raum für alle schließen?'))return;
+  try{ await sbFetch('rooms?id=eq.'+S.vsRoom,'DELETE'); }catch(e){}
+  stopMpPolls();if(S.heartbeatInterval){clearInterval(S.heartbeatInterval);S.heartbeatInterval=null;}
+  S.isVs=false;S.vsRoom=null;S._mpStarted=false;show('start-screen');
+}
+function cancelRoom(){ leaveRoom(); }
+function leaveRoom(){ cleanupRoom(); show('start-screen'); }
 
-function startVsPoll(){
+// ── Poll (rooms + room_players in einem Request via Embedding) ──
+function startMpPoll(){
   if(S.vsPollInterval)clearInterval(S.vsPollInterval);
-  S.vsPollInterval=setInterval(async function(){
-    if(!S.vsRoom)return;
-    try{
-      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_scores,guest_scores,host_guess_latlng,guest_guess_latlng,host_last_seen,guest_last_seen,current_round,next_votes,play_again_votes,host_next_voted,guest_next_voted,host_play_again_voted,guest_play_again_voted');
-      if(!rows||!rows[0]){handleDisconnect();return;}
-      var r=rows[0];
-      vsCheckPresence(r);
-      // gemeinsamer Rundenzeiger → gleichzeitig in die neue Runde
-      if(typeof r.current_round==='number'&&r.current_round>S.round){goToVsRound(r.current_round);return;}
-      S.vsTheirScores=(S.vsIsHost?r.guest_scores:r.host_scores)||[];updateVsStrip();
-      maybeShowOpponentGuessedHint();
-      // Während ich auf den Gegner warte: eigenen Score selbst-heilen (falls der PATCH verloren ging)
-      // und Gegner-fertig redundant erkennen (zweiter Poller neben dem Spectate-Poll).
-      if($('result-screen').classList.contains('active')&&S._vsWaitForLen){
-        var _myScores=(S.vsIsHost?r.host_scores:r.guest_scores)||[];
-        if(_myScores.length<S._vsWaitForLen&&!S._vsRepushing&&S._vsLastGuess){
-          S._vsRepushing=true;vsLog('Self-Heal: eigener Score fehlt im Raum → erneut pushen');
-          pushVsScore(S._vsLastPts,S._vsLastGuess).then(function(){S._vsRepushing=false;}).catch(function(){S._vsRepushing=false;});
-        }
-        vsHandleOpponentState(S.vsTheirScores,(S.vsIsHost?r.guest_guess_latlng:r.host_guess_latlng));
-      }
-      // Vote-Zähler race-sicher aus beiden Flags ableiten
-      var votes=(r.host_next_voted?1:0)+(r.guest_next_voted?1:0);
-      if(votes!==S.nextVotes){S.nextVotes=votes;updateNextVoteUI();}
-      var pav=r.play_again_votes||0;
-      if(pav!==S.playAgainVotes){S.playAgainVotes=pav;updatePlayAgainVoteUI();}
-      // Host rückt vor, sobald beide bereit sind
-      if($('result-screen').classList.contains('active'))vsAdvanceIfHost();
-      var myPAV=S.vsIsHost?r.host_play_again_voted:r.guest_play_again_voted,theirPAV=S.vsIsHost?r.guest_play_again_voted:r.host_play_again_voted;
-      if(myPAV&&theirPAV&&$('final-screen').classList.contains('active'))doPlayAgain();
-    }catch(e){}
-  },1500);
+  S.vsPollInterval=setInterval(mpPollTick,1200);
+  mpPollTick();
 }
-
-function showVsLeftMessage(name){
-  vsLog('Gegner hat verlassen ('+name+')');
-  if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}
-  stopSpectatePoll();clearNextVoteTimers();
-  $('vs-left-title').textContent=name+' hat das Spiel verlassen.';$('vs-left-sub').textContent='Das Spiel wurde beendet.';$('vs-left-msg').classList.add('show');
-  if(S.heartbeatInterval){clearInterval(S.heartbeatInterval);S.heartbeatInterval=null;}
-}
-
-// Zentrale, drift-sichere "Gegner fertig"-Erkennung. Wird von ZWEI unabhängigen Pollern aufgerufen
-// (Spectate-Poll 700ms + Haupt-Poll 1500ms) → ein einzelner verpasster Tick lässt niemanden hängen.
-function vsHandleOpponentState(theirScores,theirGuess){
-  if(!S.isVs||S.vsTheirDone)return;
-  if(!S._vsWaitForLen)return;                                  // ich habe diese Runde noch nicht abgegeben
-  if(!$('result-screen').classList.contains('active'))return;
-  theirScores=theirScores||[];
-  if(theirScores.length>=S._vsWaitForLen){
-    S.vsTheirDone=true;S.vsTheirScores=theirScores;
-    if(theirGuess&&(typeof theirGuess.round==='undefined'||theirGuess.round===S.round))S.vsTheirGuessLatLng=theirGuess;
-    onOpponentDone();
-  }
-}
-function startSpectatePoll(){
-  stopSpectatePoll();S.vsTheirDone=false;
-  S.vsSpecPollInterval=setInterval(async function(){
-    if(!S.vsRoom)return;
-    try{
-      var theirScoreKey=S.vsIsHost?'guest_scores':'host_scores',theirGuessKey=S.vsIsHost?'guest_guess_latlng':'host_guess_latlng';
-      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select='+theirScoreKey+','+theirGuessKey);
-      if(!rows||!rows[0])return;var r=rows[0];
-      vsHandleOpponentState(r[theirScoreKey],r[theirGuessKey]);
-    }catch(e){}
-  },700);
-}
-function stopSpectatePoll(){if(S.vsSpecPollInterval){clearInterval(S.vsSpecPollInterval);S.vsSpecPollInterval=null;}}
-
-function onOpponentDone(){
-  vsLog('Gegner fertig erkannt');
-  stopSpectatePoll();hideVsWaitOverlay();clearSubmitCountdown();$('vs-bottom-wait').classList.remove('show');
-  if(S.vsTheirGuessLatLng&&S.resultMap){
-    L.circleMarker([S.vsTheirGuessLatLng.lat,S.vsTheirGuessLatLng.lng],{radius:8,color:'#8fa89a',fillColor:'#8fa89a',fillOpacity:.8,weight:2}).addTo(S.resultMap).bindTooltip(S.vsTheirName,{permanent:true,direction:'top'});
-    S.resultMap.fitBounds(L.latLngBounds([[S.current.lat,S.current.lng],[S.guessLatLng.lat,S.guessLatLng.lng],[S.vsTheirGuessLatLng.lat,S.vsTheirGuessLatLng.lng]]).pad(.5));
-  }
-  if(S.vsTheirGuessLatLng&&S.current&&S.guessLatLng){
-    var theirDist=haversine(S.vsTheirGuessLatLng.lat,S.vsTheirGuessLatLng.lng,S.current.lat,S.current.lng),theirPts=calcPts(theirDist);
-    var myDist=haversine(S.guessLatLng.lat,S.guessLatLng.lng,S.current.lat,S.current.lng),myPts=calcPts(myDist);
-    renderRoundCompare(myDist,myPts,theirDist,theirPts);
-  }
-  updateVsStrip();showNextVoteUI();$('next-btn').disabled=false;
-}
-
-
-var _submitCountdownInterval=null;
-function startSubmitCountdown(){
-  clearSubmitCountdown();var secs=25;var lbl=$('vs-submit-countdown');
-  if(lbl){lbl.textContent='Warte auf Gegner… ('+secs+'s)';lbl.classList.add('show');}
-  _submitCountdownInterval=setInterval(function(){
-    secs--;
-    var l=$('vs-submit-countdown');if(l)l.textContent='Warte auf Gegner… ('+Math.max(0,secs)+'s)';
-    if(secs<=0){clearSubmitCountdown();vsWaitFallback();}
-  },1000);
-}
-// Falls der Gegner nicht als fertig erkannt wird, trotzdem weiter lassen
-function vsWaitFallback(){
-  if(!S.isVs||S.vsTheirDone)return;
-  if(!$('result-screen').classList.contains('active'))return;
-  vsLog('wait-fallback: Gegner nicht erkannt fertig → weiter ermöglicht');
-  stopSpectatePoll();hideVsWaitOverlay();$('vs-bottom-wait').classList.remove('show');
-  showNextVoteUI();$('next-btn').disabled=false;
-}
-function clearSubmitCountdown(){
-  if(_submitCountdownInterval){clearInterval(_submitCountdownInterval);_submitCountdownInterval=null;}
-  var l=$('vs-submit-countdown');if(l){l.classList.remove('show');l.textContent='';}
-}
-
-var VS_WAIT_LINES=[
-  '{n} ist noch am Kochen…','{n} überlegt noch…','{n} dreht noch eine Ehrenrunde…',
-  '{n} schaut sich noch um…','{n} fährt noch eine Runde durchs Dorf…','Warte auf {n}…',
-  '{n} ist gleich soweit…','{n} hat da so eine Vermutung…','{n} braucht noch einen Geistesblitz…',
-  '{n} orientiert sich noch…','{n} lässt sich Zeit…'
-];
-var _vsWaitRotTimer=null;
-function _vsWaitLine(){var n=S.vsTheirName||'Gegner';return VS_WAIT_LINES[Math.floor(Math.random()*VS_WAIT_LINES.length)].replace('{n}',n);}
-function showVsWaitOverlay(doShow){
-  var o=$('vs-wait-overlay');if(!o)return;
-  if(doShow){
-    o.classList.add('show');var t=$('vs-wait-overlay-text');if(t){t.style.opacity='1';t.textContent=_vsWaitLine();}
-    var sub=$('vs-wait-overlay-sub');if(sub)sub.textContent='';$('next-btn').disabled=true;
-    if(_vsWaitRotTimer)clearInterval(_vsWaitRotTimer);
-    _vsWaitRotTimer=setInterval(function(){
-      if(!o.classList.contains('show')){clearInterval(_vsWaitRotTimer);_vsWaitRotTimer=null;return;}
-      var el=$('vs-wait-overlay-text');if(!el)return;el.style.opacity='0';
-      setTimeout(function(){el.textContent=_vsWaitLine();el.style.opacity='1';},380);
-    },3500);
-  } else { o.classList.remove('show');if(_vsWaitRotTimer){clearInterval(_vsWaitRotTimer);_vsWaitRotTimer=null;} }
-}
-function hideVsWaitOverlay(){var o=$('vs-wait-overlay');if(o)o.classList.remove('show');if(_vsWaitRotTimer){clearInterval(_vsWaitRotTimer);_vsWaitRotTimer=null;}}
-
-function startHeartbeat(){
-  if(S.heartbeatInterval)clearInterval(S.heartbeatInterval);
-  function beat(){
-    if(!S.vsRoom)return;
-    var onlineKey=S.vsIsHost?'host_online':'guest_online',seenKey=S.vsIsHost?'host_last_seen':'guest_last_seen';
-    var now=new Date().toISOString(),patch={};patch[onlineKey]=true;patch[seenKey]=now;patch.last_activity=now;
-    sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',patch).catch(function(){});
-  }
-  beat();
-  S.heartbeatInterval=setInterval(beat,3000);
-}
-// best-effort: beim Schließen/Verstecken offline melden, damit der Gegner schneller merkt dass jemand weg ist.
-// fetch+keepalive (nicht sendBeacon, das kann nur POST — PostgREST braucht PATCH). Zuverlässiger Fallback ist die last_seen-Staleness.
-function vsMarkOffline(){
-  if(!S.vsRoom||!S.isVs)return;
+function stopMpPolls(){ if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;} mpClearRoundClock(); }
+function stopSpectatePoll(){}
+function clearNextVoteTimers(){ if(S.nextVoteAutoTimer){clearInterval(S.nextVoteAutoTimer);S.nextVoteAutoTimer=null;} }
+async function mpPollTick(){
+  if(!S.vsRoom)return;
   try{
-    var onlineKey=S.vsIsHost?'host_online':'guest_online',seenKey=S.vsIsHost?'host_last_seen':'guest_last_seen';
-    var body={};body[onlineKey]=false;body[seenKey]=new Date(Date.now()-60000).toISOString();
-    fetch(SB_URL+'/rest/v1/rooms?id=eq.'+S.vsRoom,{method:'PATCH',keepalive:true,
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify(body)}).catch(function(){});
+    var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=*,room_players(*)');
+    if(!rows||!rows[0]){ handleMpRoomGone(); return; }
+    var room=rows[0],players=room.room_players||[];
+    S.mpRoom=room;S.mpPlayers=players;S.mpModifiers=room.modifiers||{};S.vsIsHost=(room.host_id===S.playerId);
+    var me=players.filter(function(p){return p.player_id===S.playerId;})[0];
+    if(me&&me.kicked){handleKicked();return;}
+    mpDetectLeavers(players);
+    mpMaybeMigrateHost(room,players);
+    S.vsIsHost=(room.host_id===S.playerId);
+    if($('mp-lobby-screen').classList.contains('active')){
+      renderLobby(room,players);
+      if(room.status==='playing'){beginMpMatch(room);return;}
+      // Host: sobald alle (inkl. Host) bereit sind, automatisch starten
+      if(S.vsIsHost&&room.status==='lobby'&&!S._mpStarting){
+        var on=mpInMatch(players).filter(function(p){return mpOnline(p)||p.player_id===S.playerId;});
+        if(on.length>=2&&on.every(function(p){return p.ready;})){ S._mpStarting=true; startMatch(); }
+      }
+      return;
+    }
+    if(room.status==='playing'){
+      if(!S._mpStarted){beginMpMatch(room);return;}
+      if(room.round_started_at)S.mpRoundStartedAt=new Date(room.round_started_at).getTime();
+      var cr=room.current_round||0;
+      if(cr>S.round){goToMpRound(cr,room);return;}
+      mpUpdateLiveState(room,players);
+      mpMaybeShowSkipNotice(room,players);
+      if(S.vsIsHost)mpHostMaybeAdvance(room,players);
+      return;
+    }
+    if(room.status==='lobby'){
+      if($('final-screen').classList.contains('active')||$('result-screen').classList.contains('active')||$('game-screen').classList.contains('active')){S._mpStarted=false;enterLobby();}
+      return;
+    }
+    // status 'finished' → auf dem Endbildschirm bleiben
   }catch(e){}
+}
+// Host-Migration: wenn der Host offline ist, übernimmt deterministisch der Online-Spieler mit der kleinsten ID
+function mpMaybeMigrateHost(room,players){
+  if(!room.host_id||!S.vsRoom)return;
+  var hostRow=players.filter(function(p){return p.player_id===room.host_id;})[0];
+  if(hostRow&&mpOnline(hostRow))return; // Host da
+  var online=mpInMatch(players).filter(function(p){return mpOnline(p);});
+  if(!online.length)return;
+  online.sort(function(a,b){return a.player_id<b.player_id?-1:1;});
+  if(online[0].player_id!==S.playerId)return; // nur der designierte Nachfolger handelt
+  if(S._mpMigrating)return; S._mpMigrating=true;
+  sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{host_id:S.playerId,last_activity:new Date().toISOString()})
+    .then(function(){ S.vsIsHost=true; S._mpSettingsInit=false; showDcNotice('Du bist jetzt Host 👑'); if(S._mpLeaveT)clearTimeout(S._mpLeaveT); S._mpLeaveT=setTimeout(hideDcNotice,3500); setTimeout(function(){S._mpMigrating=false;},2000); })
+    .catch(function(){S._mpMigrating=false;});
+}
+// Meldung, wenn ein Spieler den Raum verlässt / die Verbindung verliert
+function mpDetectLeavers(players){
+  var nowOnline={};
+  mpInMatch(players).forEach(function(p){ if(mpOnline(p)) nowOnline[p.player_id]=p.name; });
+  if(S._mpPrevOnline){
+    Object.keys(S._mpPrevOnline).forEach(function(id){
+      if(id!==S.playerId && !nowOnline[id]){ showDcNotice((S._mpPrevOnline[id]||'Ein Spieler')+' hat den Raum verlassen.'); if(S._mpLeaveT)clearTimeout(S._mpLeaveT); S._mpLeaveT=setTimeout(hideDcNotice,3500); }
+    });
+  }
+  S._mpPrevOnline=nowOnline;
+}
+function startMpHeartbeat(){
+  if(S.heartbeatInterval)clearInterval(S.heartbeatInterval);
+  function beat(){ if(!S.vsRoom)return; sbFetch(_pq(),'PATCH',{online:true,last_seen:new Date().toISOString()}).catch(function(){}); }
+  beat();S.heartbeatInterval=setInterval(beat,3000);
+}
+function vsMarkOffline(){
+  if(!S.vsRoom)return;
+  try{ fetch(SB_URL+'/rest/v1/'+_pq(),{method:'PATCH',keepalive:true,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({online:false,last_seen:new Date(Date.now()-60000).toISOString()})}).catch(function(){}); }catch(e){}
 }
 window.addEventListener('pagehide',vsMarkOffline);
 window.addEventListener('beforeunload',vsMarkOffline);
 
-function handleDisconnect(){vsLog('handleDisconnect: Raum-Zeile fehlt');showDcNotice('Verbindung verloren.');}
-function showDcNotice(msg){$('dc-notice').textContent=msg;$('dc-notice').classList.add('show');}
-function hideDcNotice(){$('dc-notice').classList.remove('show');}
-
-function showNextVoteUI(){
-  clearNextVoteTimers(); // doppelte Auto-Timer vermeiden (onOpponentDone ODER Fallback)
-  $('next-vote-bar').classList.add('show');updateNextVoteUI();
-  var secs=NEXT_AUTO_SECS;
-  S.nextVoteAutoTimer=setInterval(function(){
-    secs--;var tb=$('next-vote-timer');if(tb)tb.textContent='('+secs+'s)';
-    if(secs<=0){clearNextVoteTimers();
-      if(S.isVs){if(S.vsIsHost)vsAdvanceIfHost(true);else voteNext();} // Timer erzwingt Vorrücken (Host) bzw. Vote (Gast)
-      else nextRound();
-    }
-  },1000);
-}
-function updateNextVoteUI(){var bar=$('next-vote-bar');if(!bar.classList.contains('show'))return;bar.innerHTML='Nächste Runde ('+(S.nextVotes||0)+'/2) <span id="next-vote-timer"></span>';}
-
-async function voteNext(){
-  if(!S.isVs){nextRound();return;}
-  if(S.myNextVoted)return;S.myNextVoted=true;$('next-btn').disabled=true;
-  var myVK=S.vsIsHost?'host_next_voted':'guest_next_voted';
+async function cleanupRoom(){
+  vsMarkOffline();
   try{
-    // nur eigenes Flag setzen (race-sicher); das tatsächliche Vorrücken macht der Host über current_round
-    var p={};p[myVK]=true;await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',p);
-    vsAdvanceIfHost(); // falls ich der Host bin: sofort prüfen
-  }catch(e){S.myNextVoted=false;$('next-btn').disabled=false;}
+    if(S.vsIsHost&&S.vsRoom){
+      // Host verlässt → Hosttitel an anderen Online-Spieler übergeben, sonst Raum löschen
+      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=room_players(player_id,online,last_seen,kicked)');
+      var others=((rows&&rows[0]&&rows[0].room_players)||[]).filter(function(p){return p.player_id!==S.playerId&&!p.kicked&&p.online&&p.last_seen&&(Date.now()-new Date(p.last_seen).getTime())<12000;});
+      if(others.length){
+        others.sort(function(a,b){return a.player_id<b.player_id?-1:1;});
+        await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{host_id:others[0].player_id,last_activity:new Date().toISOString()});
+        await sbFetch(_pq(),'DELETE');
+      } else { await sbFetch('rooms?id=eq.'+S.vsRoom,'DELETE'); }
+    } else if(S.vsRoom){ await sbFetch(_pq(),'DELETE'); }
+  }catch(e){}
+  stopMpPolls();
+  if(S.heartbeatInterval){clearInterval(S.heartbeatInterval);S.heartbeatInterval=null;}
+  S.isVs=false;S.vsRoom=null;S._mpStarted=false;
 }
-function clearNextVoteTimers(){if(S.nextVoteTimer){clearInterval(S.nextVoteTimer);S.nextVoteTimer=null;}if(S.nextVoteAutoTimer){clearInterval(S.nextVoteAutoTimer);S.nextVoteAutoTimer=null;}}
+function handleKicked(){
+  var was=S.vsRoom;
+  stopMpPolls();if(S.heartbeatInterval){clearInterval(S.heartbeatInterval);S.heartbeatInterval=null;}
+  S.isVs=false;S.vsRoom=null;S._mpStarted=false;
+  try{sbFetch('room_players?room_id=eq.'+was+'&player_id=eq.'+encodeURIComponent(S.playerId),'DELETE');}catch(e){}
+  alert('Du wurdest aus dem Raum entfernt.');show('start-screen');
+}
+function handleMpRoomGone(){
+  stopMpPolls();if(S.heartbeatInterval){clearInterval(S.heartbeatInterval);S.heartbeatInterval=null;}
+  if(S.isVs||$('mp-lobby-screen').classList.contains('active')){ S.isVs=false;S.vsRoom=null;S._mpStarted=false; showDcNotice('Raum geschlossen.'); setTimeout(hideDcNotice,3000); show('start-screen'); }
+}
+function showDcNotice(msg){var e=$('dc-notice');if(e){e.textContent=msg;e.classList.add('show');}}
+function hideDcNotice(){var e=$('dc-notice');if(e)e.classList.remove('show');}
 
-async function votePlayAgain(){
-  if(!S.isVs){if(S.mode==='daily'){startDailyChallenge();return;}if(S.mode==='survival'){startSurvival();return;}if(S.mode==='solo'){startSolo();return;}doPlayAgain();return;}
-  if(S.myPlayAgainVoted)return;S.myPlayAgainVoted=true;$('play-again-btn').disabled=true;$('play-again-btn').textContent='Gewartet…';
-  var myVK=S.vsIsHost?'host_play_again_voted':'guest_play_again_voted';
-  try{
-    // nur eigenes Flag setzen, Zähler aus beiden Flags ableiten (sonst Race bei gleichzeitigem Klick)
-    var p={last_activity:new Date().toISOString()};p[myVK]=true;
-    await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',p);
-    var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_play_again_voted,guest_play_again_voted');
-    var rr=(rows&&rows[0])||{},cnt=(rr.host_play_again_voted?1:0)+(rr.guest_play_again_voted?1:0);
-    S.playAgainVotes=cnt;updatePlayAgainVoteUI();
-    sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{play_again_votes:cnt}).catch(function(){}); // Anzeige beim Gegner aktualisieren
-    if(rr.host_play_again_voted&&rr.guest_play_again_voted){doPlayAgain();return;}
-    startPlayAgainPoll(); // Haupt-Poll ist im Final-Screen aus, eigener Poll wartet auf den Gegner
-  }catch(e){S.myPlayAgainVoted=false;$('play-again-btn').disabled=false;$('play-again-btn').textContent='Nochmal';}
+// ── Match-Start + Countdown ──
+function beginMpMatch(room){
+  if(S._mpStarted)return;
+  S._mpStarted=true;
+  resetScoreSavedUI();
+  S.mode='vs';S._vsCounted=false;S.vsWon=false;
+  S.roundsTotal=Math.max(1,room.rounds||5);
+  resetBaseState();S.isVs=true;
+  S.locations=(room.location_ids||[]).map(function(id){return LOCATIONS.find(function(l){return l.id===id;});}).filter(Boolean);
+  S.round=0;S.score=0;S.roundScores=[];
+  S.mpRoundStartedAt=room.round_started_at?new Date(room.round_started_at).getTime():Date.now();
+  S._mpWaitForLen=0;S._mpRepushing=false;S._mpLastGuess=null;S.vsTheirDone=false;S._mpAdvanceAt=0;S._mpSkipVotedRound=-1;
+  var others=mpInMatch(S.mpPlayers).filter(function(p){return p.player_id!==S.playerId;});
+  S.vsTheirName=others[0]?others[0].name:'Gegner';
+  var nP=mpInMatch(S.mpPlayers).length;
+  var badge=$('vs-badge');if(badge){badge.style.display='block';badge.textContent=(nP<=2?('VS '+S.vsTheirName):('Mehrspieler · '+nP));}
+  mpCountdown(function(){ show('game-screen'); var hb=$('back-to-home-btn');if(hb)hb.style.display='none'; initPanoDrag(); loadRound(); });
 }
-// Wartet im Final-Screen, bis beide "Nochmal" gewählt haben (oder Host den Rematch startet)
-function startPlayAgainPoll(){
-  if(S._playAgainPoll)clearInterval(S._playAgainPoll);
-  S._playAgainPoll=setInterval(async function(){
-    if(!S.vsRoom||!$('final-screen').classList.contains('active')){clearInterval(S._playAgainPoll);S._playAgainPoll=null;return;}
+function mpCountdown(cb){
+  var ov=$('mp-countdown');
+  if(!ov){cb();return;}
+  var n=3;ov.textContent='3';ov.classList.add('show');sfx.roundIntro&&sfx.roundIntro(3);
+  var iv=setInterval(function(){
+    n--;
+    if(n>0){ov.textContent=String(n);sfx.roundIntro&&sfx.roundIntro(n);ov.style.animation='none';void ov.offsetWidth;ov.style.animation='';}
+    else if(n===0){ov.textContent='Los!';sfx.next&&sfx.next();}
+    else{clearInterval(iv);ov.classList.remove('show');cb();}
+  },800);
+}
+function goToMpRound(targetRound,room){
+  if(targetRound<=S.round)return;
+  if(Date.now()-(S._lastMpAdvanceAt||0)<500)return;
+  S._lastMpAdvanceAt=Date.now();
+  mpClearRoundClock();
+  if(S._mpRevealIv){clearInterval(S._mpRevealIv);S._mpRevealIv=null;}
+  S.round=targetRound;
+  S.vsTheirDone=false;S._mpWaitForLen=0;S._mpRepushing=false;S._mpLastGuess=null;S._mpAdvanceAt=0;S._mpRevealed=false;S._mpSkipVotedRound=-1;
+  hideVsWaitOverlay();mpRemoveSkipUI();mpHideSkipNotice();
+  var board=$('mp-round-board');if(board){board.style.display='none';board.innerHTML='';}
+  var row=$('vs-their-guess-row');if(row){row.style.display='none';row.innerHTML='';}
+  hideVsWaitOverlay();var bw=$('vs-bottom-wait');if(bw)bw.classList.remove('show');
+  S.mpRoundStartedAt=room&&room.round_started_at?new Date(room.round_started_at).getTime():Date.now();
+  if(S.round>=S.roundsTotal){ showFinal(); }
+  else{ sfx.next&&sfx.next(); show('game-screen'); loadRound(); }
+}
+function mpHostMaybeAdvance(room,players){
+  if(!S.vsIsHost)return;
+  if((room.current_round||0)!==S.round)return;
+  if(S._mpAdvanceLock)return;
+  var online=players.filter(function(p){return mpOnline(p);});
+  if(!online.length)return;
+  var allDone=online.every(function(p){return (p.scores||[]).length>S.round;});
+  var mod=room.modifiers||{};
+  var elapsed=(Date.now()-(S.mpRoundStartedAt||Date.now()))/1000;
+  var timeUp=mod.timeLimit&&elapsed>(mod.timeLimit+5);
+  // Überspringen-Abstimmung: ab 3 Spielern, >=60% Ja-Stimmen → sofort vorrücken
+  var skipVotesN=online.filter(function(p){return p.skip_vote===S.round;}).length;
+  var skipForce=(online.length>=3)&&(skipVotesN>=mpSkipNeeded(online.length));
+  if(allDone||timeUp||skipForce){
+    if(!S._mpAdvanceAt)S._mpAdvanceAt=Date.now()+((allDone&&!skipForce)?4000:0);
+    if(Date.now()<S._mpAdvanceAt)return;
+    S._mpAdvanceLock=true;S._mpAdvanceAt=0;
+    var next=S.round+1;
+    sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{current_round:next,round_started_at:new Date().toISOString(),last_activity:new Date().toISOString()})
+      .then(function(){setTimeout(function(){S._mpAdvanceLock=false;},1500);})
+      .catch(function(){S._mpAdvanceLock=false;});
+  }else{S._mpAdvanceAt=0;}
+}
+
+// ── Modifiers + Rundenuhr ──
+function applyMpModifiers(){
+  var mod=S.mpModifiers||{};
+  try{ if(window.NAV){ NAV.locked=!!mod.noMove; var ov=document.getElementById('nav-arrows'); if(ov)ov.classList.toggle('nav-locked',!!mod.noMove);} }catch(e){}
+  S.mpNoLook=!!mod.noLook;
+  var dh=$('drag-hint');if(dh&&mod.noLook)dh.style.display='none';
+  var gs=$('game-screen');
+  if(gs){ gs.classList.toggle('mp-gray',!!mod.grayscale); gs.classList.toggle('mp-blur',!!mod.blur); }
+}
+function mpClearMods(){ var gs=$('game-screen'); if(gs){gs.classList.remove('mp-gray','mp-blur');} S.mpNoLook=false; }
+function mpClearRoundClock(){ if(S._mpClock){clearInterval(S._mpClock);S._mpClock=null;} }
+function mpStartRoundClock(){
+  mpClearRoundClock();
+  var mod=S.mpModifiers||{};
+  var timerEl=$('mp-timer');if(timerEl)timerEl.style.display=mod.timeLimit?'block':'none';
+  if(!mod.timeLimit)return;
+  S._mpClock=setInterval(function(){
+    if(!$('game-screen').classList.contains('active'))return;
+    var left=Math.ceil(mod.timeLimit-(Date.now()-(S.mpRoundStartedAt||Date.now()))/1000);
+    if(timerEl)timerEl.textContent='⏱ '+Math.max(0,left)+'s';
+    if(left<=0){ mpClearRoundClock(); if($('game-screen').classList.contains('active')){ if(!S.guessLatLng)S.guessLatLng={lat:CENTER[0],lng:CENTER[1]}; submitGuess(); } }
+  },250);
+}
+
+// ── Abgeben + Erkennung ──
+function mpOnSubmit(pts){
+  S._mpWaitForLen=S.round+1;S._mpLastPts=pts;S._mpLastGuess={lat:S.guessLatLng.lat,lng:S.guessLatLng.lng};S._mpRepushing=false;S._mpRevealed=false;
+  mpClearRoundClock();
+  pushMpScore(pts,S.guessLatLng);
+  showMpWaitOverlay([]); // Ergebnis erst zeigen, wenn ALLE fertig sind
+  var nb=$('next-btn');if(nb)nb.style.display='none';
+  var bw=$('vs-bottom-wait');if(bw)bw.classList.remove('show');
+}
+// Vollbild-Warteoverlay: "Warten auf:" + noch ratende Spieler
+function showMpWaitOverlay(names){
+  var o=$('vs-wait-overlay');if(!o)return;
+  var t=$('vs-wait-overlay-text');if(t)t.textContent='Warten auf';
+  var sub=$('vs-wait-overlay-sub');
+  if(sub)sub.innerHTML=(names&&names.length)?('<div class="mp-wait-names">'+names.map(function(n){return '<span class="mp-wait-name">'+escHtml(n)+'</span>';}).join('')+'</div>'):'<div class="mp-wait-names"><span class="mp-wait-name">…</span></div>';
+  o.classList.add('show');
+}
+function startMpRevealCountdown(){
+  if(S._mpRevealIv){clearInterval(S._mpRevealIv);}
+  var start=Date.now(),dur=4000,bw=$('vs-bottom-wait');
+  if(bw)bw.classList.add('show');
+  function upd(){var left=Math.max(0,Math.ceil((dur-(Date.now()-start))/1000));if(bw)bw.textContent=left>0?('Nächste Runde in '+left+'…'):'Nächste Runde…';if(left<=0){clearInterval(S._mpRevealIv);S._mpRevealIv=null;}}
+  upd();S._mpRevealIv=setInterval(upd,250);
+}
+async function pushMpScore(pts,guessLL){
+  var roundIdx=S.round;
+  for(var a=0;a<5;a++){
     try{
-      var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=host_play_again_voted,guest_play_again_voted,host_scores');
-      var rr=(rows&&rows[0])||{},cnt=(rr.host_play_again_voted?1:0)+(rr.guest_play_again_voted?1:0);
-      if(cnt!==S.playAgainVotes){S.playAgainVotes=cnt;updatePlayAgainVoteUI();}
-      var bothVoted=rr.host_play_again_voted&&rr.guest_play_again_voted;
-      var hostStartedRematch=!S.vsIsHost&&S.myPlayAgainVoted&&(!rr.host_scores||rr.host_scores.length===0);
-      if(bothVoted||hostStartedRematch){clearInterval(S._playAgainPoll);S._playAgainPoll=null;doPlayAgain();}
-    }catch(e){}
-  },1500);
+      var rows=await sbFetch(_pq()+'&select=scores');
+      if(!rows||!rows[0])return false;
+      var cur=(rows[0].scores||[]).slice();
+      cur[roundIdx]=pts;for(var i=0;i<cur.length;i++){if(cur[i]==null)cur[i]=0;}
+      await sbFetch(_pq(),'PATCH',{scores:cur,guess_latlng:{lat:guessLL.lat,lng:guessLL.lng,round:roundIdx},last_seen:new Date().toISOString()});
+      return true;
+    }catch(e){ await new Promise(function(r){setTimeout(r,500);}); }
+  }
+  return false;
 }
-function updatePlayAgainVoteUI(){var bar=$('play-again-vote');bar.style.display='block';bar.textContent='Nochmal ('+S.playAgainVotes+'/2)';}
-
-function doPlayAgain(){
-  if(S._playAgainPoll){clearInterval(S._playAgainPoll);S._playAgainPoll=null;}
-  var locs=shuffle(LOCATIONS.slice()).slice(0,5).map(function(l){return l.id;});
-  if(S.vsIsHost){sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{location_ids:locs,host_scores:[],guest_scores:[],host_done:false,guest_done:false,current_round:0,next_votes:0,play_again_votes:0,host_next_voted:false,guest_next_voted:false,host_play_again_voted:false,guest_play_again_voted:false,last_activity:new Date().toISOString()}).catch(function(){});startVsGame(locs);}
-  else{var iv=setInterval(async function(){try{var rows=await sbFetch('rooms?id=eq.'+S.vsRoom+'&select=location_ids,host_scores');if(rows&&rows[0]&&(!rows[0].host_scores||rows[0].host_scores.length===0)){clearInterval(iv);startVsGame(rows[0].location_ids);}}catch(e){}},2000);}
+function mpUpdateLiveState(room,players){
+  var inMatch=mpInMatch(players);
+  // Self-Heal: eigener Score fehlt im Raum → erneut pushen
+  if($('result-screen').classList.contains('active')&&S._mpWaitForLen){
+    var meRow=inMatch.filter(function(p){return p.player_id===S.playerId;})[0];
+    if(meRow&&(meRow.scores||[]).length<S._mpWaitForLen&&!S._mpRepushing&&S._mpLastGuess){
+      S._mpRepushing=true;pushMpScore(S._mpLastPts,S._mpLastGuess).then(function(){S._mpRepushing=false;}).catch(function(){S._mpRepushing=false;});
+    }
+  }
+  if(!$('result-screen').classList.contains('active'))return;
+  if(!S._mpWaitForLen)return; // ich habe diese Runde noch nicht abgegeben
+  var onlineN=inMatch.filter(function(p){return mpOnline(p)||p.player_id===S.playerId;});
+  var notDone=onlineN.filter(function(p){return (p.scores||[]).length<=S.round;});
+  if(notDone.length>0){
+    // Noch nicht alle fertig → nur Warte-Overlay mit den noch ratenden Spielern, KEIN Ergebnis
+    showMpWaitOverlay(notDone.map(function(p){return p.name;}));
+    mpRenderSkipUI(onlineN);
+    return;
+  }
+  mpRemoveSkipUI();
+  // Alle fertig → Ergebnis einmalig aufdecken + Countdown
+  if(!S._mpRevealed){
+    S._mpRevealed=true;
+    hideVsWaitOverlay();
+    if(inMatch.length<=2){
+      var opp=inMatch.filter(function(p){return p.player_id!==S.playerId;})[0];
+      var tg=opp&&opp.guess_latlng;
+      if(tg&&(tg.round===undefined||tg.round===S.round)&&S.resultMap){try{L.circleMarker([tg.lat,tg.lng],{radius:8,color:'#8fa89a',fillColor:'#8fa89a',fillOpacity:.8,weight:2}).addTo(S.resultMap).bindTooltip(opp.name,{permanent:true,direction:'top'});}catch(e){}}
+      var theirPts=opp?((opp.scores||[])[S.round]||0):0;
+      var theirDist=tg?haversine(tg.lat,tg.lng,S.current.lat,S.current.lng):0;
+      var myDist=haversine(S.guessLatLng.lat,S.guessLatLng.lng,S.current.lat,S.current.lng);
+      var myPts=S.roundScores[S.round]?S.roundScores[S.round].pts:0;
+      if(opp)renderRoundCompare(myDist,myPts,theirDist,theirPts);
+    }else{
+      renderMpRoundBoard(inMatch);
+    }
+    startMpRevealCountdown();
+  }else if(inMatch.length>2){
+    renderMpRoundBoard(inMatch);
+  }
 }
-
-// Kopf-an-Kopf-Auswertung: Du vs Gegner, Punkte und Distanz, Sieger markiert
+// ── Überspringen-Abstimmung (nur ab 3 Spielern) ──
+// Wartende (bereits abgegeben) dürfen abstimmen, sobald >=40% der Lobby abgegeben hat;
+// bei >=60% Ja-Stimmen wird die Runde übersprungen. In 2er-Lobbys deaktiviert.
+var MP_SKIP_SUBMIT_PCT=0.4, MP_SKIP_VOTE_PCT=0.6;
+function mpSkipNeeded(lobbyN){ return Math.ceil(MP_SKIP_VOTE_PCT*lobbyN); }
+function mpVoteSkip(){
+  if(!S.vsRoom)return;
+  S._mpSkipVotedRound=S.round; // sofortiges UI-Feedback bis zum nächsten Poll
+  sbFetch(_pq(),'PATCH',{skip_vote:S.round,last_seen:new Date().toISOString()}).catch(function(){});
+  var b=$('mp-skip-vote-btn');if(b){b.disabled=true;b.textContent='Stimme abgegeben ✓';}
+}
+// Button im Warte-Overlay für Spieler, die schon abgegeben haben
+function mpRenderSkipUI(onlineN){
+  var o=$('vs-wait-overlay');if(!o)return;
+  var lobbyN=onlineN.length;
+  var submittedN=onlineN.filter(function(p){return (p.scores||[]).length>S.round;}).length;
+  var skipVotesN=onlineN.filter(function(p){return p.skip_vote===S.round;}).length;
+  var meRow=onlineN.filter(function(p){return p.player_id===S.playerId;})[0];
+  var iVoted=!!(meRow&&meRow.skip_vote===S.round)||S._mpSkipVotedRound===S.round;
+  var eligible=(lobbyN>=3)&&(submittedN>=Math.ceil(MP_SKIP_SUBMIT_PCT*lobbyN));
+  var wrap=$('mp-skip-vote');
+  if(!eligible){ if(wrap)wrap.remove(); return; }
+  if(!wrap){
+    wrap=document.createElement('div');wrap.id='mp-skip-vote';wrap.className='mp-skip-vote';
+    wrap.innerHTML='<button class="mp-skip-vote-btn" id="mp-skip-vote-btn" onclick="mpVoteSkip()"></button><div class="mp-skip-tally" id="mp-skip-tally"></div>';
+    o.appendChild(wrap);
+  }
+  var b=$('mp-skip-vote-btn'),tally=$('mp-skip-tally');
+  if(b){ b.disabled=iVoted; b.textContent=iVoted?'Stimme abgegeben ✓':'Stimmen fürs Überspringen'; }
+  if(tally)tally.textContent=skipVotesN+'/'+lobbyN+' fürs Überspringen';
+}
+function mpRemoveSkipUI(){ var w=$('mp-skip-vote');if(w)w.remove(); }
+// Hinweis für noch ratende Spieler auf dem Spielbildschirm
+function mpEnsureSkipNotice(){
+  var el=$('mp-skip-notice');
+  if(!el){ el=document.createElement('div');el.id='mp-skip-notice';el.className='mp-skip-notice';var gs=$('game-screen');if(gs)gs.appendChild(el); }
+  return el;
+}
+function mpShowSkipNotice(x,y){ var el=mpEnsureSkipNotice();if(!el)return;el.textContent='⏭ '+x+'/'+y+' Personen haben fürs Überspringen gestimmt!';el.classList.add('show'); }
+function mpHideSkipNotice(){ var el=$('mp-skip-notice');if(el)el.classList.remove('show'); }
+function mpMaybeShowSkipNotice(room,players){
+  if(!$('game-screen').classList.contains('active')){mpHideSkipNotice();return;}
+  var onlineN=mpInMatch(players).filter(function(p){return mpOnline(p)||p.player_id===S.playerId;});
+  var lobbyN=onlineN.length;
+  var meRow=onlineN.filter(function(p){return p.player_id===S.playerId;})[0];
+  var iSubmitted=!!(meRow&&(meRow.scores||[]).length>S.round);
+  var skipVotesN=onlineN.filter(function(p){return p.skip_vote===S.round;}).length;
+  if(lobbyN>=3&&!iSubmitted&&skipVotesN>0)mpShowSkipNotice(skipVotesN,lobbyN);
+  else mpHideSkipNotice();
+}
+function renderMpRoundBoard(inMatch){
+  var board=$('mp-round-board');if(!board)return;
+  var rows=inMatch.map(function(p){return {id:p.player_id,name:p.name,pts:((p.scores||[]).length>S.round)?p.scores[S.round]:null};});
+  rows.sort(function(a,b){return (b.pts==null?-1:b.pts)-(a.pts==null?-1:a.pts);});
+  board.innerHTML='<div class="mp-board-title">Runde '+(S.round+1)+' / '+S.roundsTotal+'</div>'+rows.map(function(r,i){
+    var you=r.id===S.playerId;
+    return '<div class="mp-board-row'+(you?' me':'')+'">'+
+      '<span class="mp-board-rank">'+(r.pts==null?'·':(i+1))+'</span>'+
+      '<span class="mp-board-name">'+escHtml(r.name)+(you?' (Du)':'')+'</span>'+
+      '<span class="mp-board-pts">'+(r.pts==null?'…':fmtN(r.pts))+'</span></div>';
+  }).join('')+(rows.length>5?'<div class="mp-scrollhint">↓ scrollen ('+rows.length+')</div>':'');
+  board.style.display='block';
+}
 function renderRoundCompare(myDist,myPts,theirDist,theirPts){
   var row=$('vs-their-guess-row');if(!row)return;
   var iWon=myPts>theirPts,theyWon=theirPts>myPts;
   var mid=iWon?'▸':theyWon?'◂':'=';
   row.style.display='block';
-  row.innerHTML=
-    '<div class="vs-h2h">'+
-      '<div class="vs-h2h-side'+(iWon?' win':'')+'">'+
-        '<div class="vs-h2h-name">Du</div>'+
-        '<div class="vs-h2h-pts">'+fmtN(myPts)+'</div>'+
-        '<div class="vs-h2h-dist">'+fmtD(myDist)+'</div>'+
-      '</div>'+
-      '<div class="vs-h2h-mid">'+mid+'</div>'+
-      '<div class="vs-h2h-side'+(theyWon?' win':'')+'">'+
-        '<div class="vs-h2h-name">'+escHtml(S.vsTheirName||'Gegner')+'</div>'+
-        '<div class="vs-h2h-pts">'+fmtN(theirPts)+'</div>'+
-        '<div class="vs-h2h-dist">'+fmtD(theirDist)+'</div>'+
-      '</div>'+
-    '</div>';
+  row.innerHTML='<div class="vs-h2h">'+
+    '<div class="vs-h2h-side'+(iWon?' win':'')+'"><div class="vs-h2h-name">Du</div><div class="vs-h2h-pts">'+fmtN(myPts)+'</div><div class="vs-h2h-dist">'+fmtD(myDist)+'</div></div>'+
+    '<div class="vs-h2h-mid">'+mid+'</div>'+
+    '<div class="vs-h2h-side'+(theyWon?' win':'')+'"><div class="vs-h2h-name">'+escHtml(S.vsTheirName||'Gegner')+'</div><div class="vs-h2h-pts">'+fmtN(theirPts)+'</div><div class="vs-h2h-dist">'+fmtD(theirDist)+'</div></div>'+
+  '</div>';
 }
 
-// Hinweis sobald der Gegner getippt hat, während du noch ratest
-function maybeShowOpponentGuessedHint(){
-  if(!S.isVs)return;
-  if(!$('game-screen').classList.contains('active'))return; // nur solange DU noch ratest
-  var theyDone=(S.vsTheirScores||[]).length>S.round;
-  if(theyDone&&S._oppHintRound!==S.round){
-    S._oppHintRound=S.round;
-    var el=$('vs-opponent-guessed');if(!el)return;
-    el.textContent='⚡ '+(S.vsTheirName||'Gegner')+' hat schon geraten';
-    el.classList.add('show');
-    if(el._t)clearTimeout(el._t);
-    el._t=setTimeout(function(){el.classList.remove('show');},4500);
+// ── Warte-Overlay / Strip (Kompat) ──
+function hideVsWaitOverlay(){var o=$('vs-wait-overlay');if(o)o.classList.remove('show');}
+function showVsWaitOverlay(){}
+function updateVsStrip(){}
+function clearSubmitCountdown(){}
+
+// ── Endbildschirm ──
+function mpShowFinal(){
+  var inMatch=mpInMatch(S.mpPlayers);
+  inMatch.forEach(function(p){p._total=(p.scores||[]).reduce(function(a,b){return a+(b||0);},0);});
+  var sorted=inMatch.slice().sort(function(a,b){return b._total-a._total;});
+  var myIdx=-1;for(var i=0;i<sorted.length;i++){if(sorted[i].player_id===S.playerId){myIdx=i;break;}}
+  var placement=myIdx>=0?myIdx+1:sorted.length;
+  if(!S._vsCounted){
+    S._vsCounted=true;
+    S.vsWon=(placement===1&&sorted.length>=2);
+    if(S.vsWon){try{var w=parseInt(localStorage.getItem(VS_WINS_KEY)||'0',10)||0;localStorage.setItem(VS_WINS_KEY,w+1);}catch(e){}}
   }
+  var pab=$('play-again-btn');if(pab){pab.style.display='';pab.disabled=false;pab.textContent='Zurück zur Lobby';}
+  var saveB=$('save-btn');if(saveB)saveB.style.display='none';
+  if(sorted.length<=2)showVsFinal2p(sorted,placement);
+  else showMpStandings(sorted,placement);
+  if(S.vsIsHost){try{sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{status:'finished',last_activity:new Date().toISOString()});}catch(e){}}
 }
-
-function updateVsStrip(){
-  var myReal=S.score,their=(S.vsTheirScores||[]).reduce(function(a,b){return a+b;},0),max=Math.max(myReal,their,1);
-  $('vs-bar-you').style.width=(myReal/max*100)+'%';$('vs-bar-them').style.width=(their/max*100)+'%';$('vs-strip-you-score').textContent=fmtN(myReal);
-  if(S.vsTheirDone){$('vs-strip-them-score').textContent=S.vsTheirScores.length?fmtN(their):'—';}else{$('vs-strip-them-score').textContent='?';}
-}
-
-function showVsFinalResult(){
-  var my=S.score,their=(S.vsTheirScores||[]).reduce(function(a,b){return a+b;},0);
-  // 1v1-Sieg lokal mitzählen (fürs Profil), pro Spiel nur einmal
-  if(!S._vsCounted){S._vsCounted=true;if(my>their){try{var _w=parseInt(localStorage.getItem('wg_vs_wins')||'0',10)||0;localStorage.setItem('wg_vs_wins',_w+1);}catch(e){}}}
-  var box=$('vs-result-box'); box.classList.add('show');
+function showVsFinal2p(sorted,placement){
+  var box=$('vs-result-box');if(box)box.classList.add('show');
+  var standings=$('mp-final-standings');if(standings)standings.style.display='none';
+  var my=sorted.filter(function(p){return p.player_id===S.playerId;})[0]||{_total:0,scores:[]};
+  var opp=sorted.filter(function(p){return p.player_id!==S.playerId;})[0]||{_total:0,scores:[],name:'Gegner'};
   var wt=$('vs-winner-text');
-  if(my>their){wt.textContent='Du gewinnst! 🏆';wt.className='vs-winner win';}
-  else if(their>my){wt.textContent=S.vsTheirName+' gewinnt 🏆';wt.className='vs-winner lose';}
-  else{wt.textContent='Unentschieden 🤝';wt.className='vs-winner tie';}
-  $('vs-final-you').textContent=(S.vsMyName||'Du')+' · '+fmtN(my);
-  $('vs-final-them').textContent=(S.vsTheirName||'Gegner')+' · '+fmtN(their);
-  // Runde-für-Runde Aufschlüsselung (lesbarer)
+  if(wt){ if(my._total>opp._total){wt.textContent='Du gewinnst! 🏆';wt.className='vs-winner win';} else if(opp._total>my._total){wt.textContent=escHtml(opp.name)+' gewinnt 🏆';wt.className='vs-winner lose';} else {wt.textContent='Unentschieden 🤝';wt.className='vs-winner tie';} }
+  var fy=$('vs-final-you');if(fy)fy.textContent=(S.vsMyName||'Du')+' · '+fmtN(my._total);
+  var ft=$('vs-final-them');if(ft)ft.textContent=(opp.name||'Gegner')+' · '+fmtN(opp._total);
   var rc=$('vs-rounds');
   if(rc){
     rc.innerHTML='';
-    var theirs=S.vsTheirScores||[], n=Math.max(S.roundScores.length,theirs.length);
-    var head=document.createElement('div'); head.className='vs-round-row vs-round-head';
-    head.innerHTML='<span class="vrr-you">Du</span><span class="vrr-lbl"></span><span class="vrr-them">'+escHtml(S.vsTheirName||'Gegner')+'</span>';
+    var n=S.roundsTotal,mine=my.scores||[],theirs=opp.scores||[];
+    var head=document.createElement('div');head.className='vs-round-row vs-round-head';
+    head.innerHTML='<span class="vrr-you">Du</span><span class="vrr-lbl"></span><span class="vrr-them">'+escHtml(opp.name||'Gegner')+'</span>';
     rc.appendChild(head);
     for(var i=0;i<n;i++){
-      var mp=S.roundScores[i]?S.roundScores[i].pts:null, tp=(i<theirs.length)?theirs[i]:null;
-      var youWon=(mp!=null&&tp!=null&&mp>tp), themWon=(mp!=null&&tp!=null&&tp>mp);
-      var row=document.createElement('div'); row.className='vs-round-row';
-      row.innerHTML='<span class="vrr-you'+(youWon?' w':'')+'">'+(mp==null?'—':fmtN(mp))+(youWon?' ▸':'')+'</span>'
-        +'<span class="vrr-lbl">R'+(i+1)+'</span>'
-        +'<span class="vrr-them'+(themWon?' w':'')+'">'+(themWon?'◂ ':'')+(tp==null?'—':fmtN(tp))+'</span>';
-      rc.appendChild(row);
-      setTimeout(function(el){return function(){el.classList.add('in');};}(row),120+i*90);
+      var mp=(i<mine.length)?mine[i]:null,tp=(i<theirs.length)?theirs[i]:null;
+      var yw=(mp!=null&&tp!=null&&mp>tp),tw=(mp!=null&&tp!=null&&tp>mp);
+      var r=document.createElement('div');r.className='vs-round-row';
+      r.innerHTML='<span class="vrr-you'+(yw?' w':'')+'">'+(mp==null?'—':fmtN(mp))+(yw?' ▸':'')+'</span><span class="vrr-lbl">R'+(i+1)+'</span><span class="vrr-them'+(tw?' w':'')+'">'+(tw?'◂ ':'')+(tp==null?'—':fmtN(tp))+'</span>';
+      rc.appendChild(r);
+      (function(el,idx){setTimeout(function(){el.classList.add('in');},120+idx*90);})(r,i);
     }
   }
-  if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}$('play-again-vote').style.display='none';if(S.vsIsHost)setTimeout(cleanupRoom,5000);
+}
+function showMpStandings(sorted,placement){
+  var box=$('vs-result-box');if(box)box.classList.remove('show');
+  var el=$('mp-final-standings');if(!el)return;
+  el.style.display='block';
+  var medals=['🥇','🥈','🥉'];
+  var head='<div class="mp-standings-place">Du wurdest '+placement+'. von '+sorted.length+(placement===1?' 🏆':'')+'</div>';
+  var listHtml=sorted.map(function(p,i){
+    var you=p.player_id===S.playerId;
+    return '<div class="mp-standings-row'+(you?' me':'')+(i===0?' first':'')+'">'+
+      '<span class="mp-standings-rank">'+(medals[i]||(i+1)+'.')+'</span>'+
+      '<span class="mp-standings-name">'+escHtml(p.name)+(you?' (Du)':'')+'</span>'+
+      '<span class="mp-standings-total">'+fmtN(p._total)+'</span></div>';
+  }).join('');
+  el.innerHTML=head+'<div class="mp-standings-list">'+listHtml+'</div>'+(sorted.length>5?'<div class="mp-scrollhint">↓ scrollen für alle '+sorted.length+' Spieler</div>':'');
 }
 
-// ── VS skip pano ──
-var _skipPanoVoted=false;
+// Weiter-Button / Space: Solo etc. → nächste Runde; Mehrspieler rückt automatisch vor (kein manuelles Voten)
+function voteNext(){ if(S.isVs)return; nextRound(); }
+
+// ── Rematch: zurück in die Lobby (deterministisch, kein Vote-Race) ──
+async function votePlayAgain(){
+  if(S.isVs){ backToLobby(); return; }
+  if(S.mode==='daily'){startDailyChallenge();return;}
+  if(S.mode==='survival'){startSurvival();return;}
+  if(S.mode==='solo'){startSolo();return;}
+}
+async function backToLobby(){
+  if(S.vsIsHost&&S.vsRoom){
+    try{
+      await sbFetch('room_players?room_id=eq.'+S.vsRoom,'PATCH',{scores:[],guess_latlng:null,ready:false,skip_vote:null});
+      await sbFetch('rooms?id=eq.'+S.vsRoom,'PATCH',{status:'lobby',current_round:0,location_ids:[],round_started_at:null,last_activity:new Date().toISOString()});
+    }catch(e){}
+  }
+  S._mpStarted=false;S.isVs=false;
+  enterLobby();
+}
+
+// ── Aufräumen alter Räume ──
+async function cleanupStaleRooms(){try{var cutoff=new Date(Date.now()-2*60*60*1000).toISOString();await sbFetch('rooms?last_activity=lt.'+cutoff,'DELETE');}catch(e){}}
+
+// ── VS skip pano (Kompat-Stubs) ──
 function showSkipPanoBtn(){}
 function hideSkipPanoBtn(){}
-async function voteSkipPano(){}
-
-async function cleanupStaleRooms(){try{var cutoff=new Date(Date.now()-2*60*60*1000).toISOString();await sbFetch('rooms?last_activity=lt.'+cutoff,'DELETE');}catch(e){}}
+function voteSkipPano(){}
+function maybeShowOpponentGuessedHint(){}
 
 // ── Keyboard ──
 document.addEventListener('keydown',function(e){
@@ -2417,7 +2618,7 @@ document.addEventListener('dragstart',function(e){e.preventDefault();});
 // ── Init ──
 window.addEventListener('load',function(){
   show('start-screen');
-  setTimeout(function(){var ses=loadSession();if(!ses.name||!ses.pwHash)openLoginModal();},800);
+  setTimeout(function(){var ses=loadSession();if((!ses.name||!ses.pwHash)&&!S.qrPendingCode&&!$('qr-join-screen').classList.contains('active')&&!$('mp-lobby-screen').classList.contains('active'))openLoginModal();},800);
   setTimeout(function(){$('logo-h1').classList.add('in');},100);
   setTimeout(function(){$('logo-p').classList.add('in');},200);
   setTimeout(function(){$('start-main').classList.add('in');},300);

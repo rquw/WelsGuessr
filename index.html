@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=15">
+<link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -16,6 +16,7 @@
 <div id="round-popup"></div>
 <div id="confetti-layer"></div>
 <div id="new-highscore-banner"><span>🏆 NEUER HIGHSCORE!</span></div>
+<div id="mp-countdown"></div>
 <div class="screen-backdrop" id="screen-backdrop"></div>
 <div id="share-canvas-wrap"><canvas id="share-canvas"></canvas></div>
 
@@ -201,11 +202,11 @@
     <div class="menu-card" onclick="openVsModal()">
       <div class="menu-card-bg" id="vs-card-bg"></div>
       <div class="menu-card-left">
-        <div class="menu-card-title">1v1</div>
-        <div class="menu-card-sub">Wer ist der wahre Welsbewohner?</div>
+        <div class="menu-card-title">Mehrspieler</div>
+        <div class="menu-card-sub">Privater Raum mit Freunden – der Host bestimmt die Regeln.</div>
       </div>
       <div class="menu-card-right">
-        <button class="menu-card-cta" onclick="openVsModal();event.stopPropagation()">Starten →</button>
+        <button class="menu-card-cta" onclick="openVsModal();event.stopPropagation()">Spielen →</button>
       </div>
     </div>
     <div class="menu-card survival-card" onclick="startSurvival()">
@@ -313,25 +314,24 @@
 <!-- VS MODAL -->
 <div class="modal-bg" id="vs-modal">
   <div class="modal" id="vs-modal-inner" style="max-width:min(500px,95vw);width:min(500px,95vw)">
-    <h2>Gegeneinander</h2>
+    <h2>Mehrspieler</h2>
     <!-- Auswahl -->
     <div id="vs-choice-btns" style="display:flex;flex-direction:column;gap:.75rem;align-items:center">
-      <p class="modal-hint" style="text-align:center;margin-bottom:.25rem">Willst du eine Runde erstellen oder beitreten?</p>
-      <button class="big-btn primary" style="width:100%;padding:.9rem" onclick="showVsPanel('create')">Runde erstellen</button>
-      <button class="big-btn" style="width:100%;padding:.9rem" onclick="showVsPanel('join')">Runde beitreten</button>
-    </div>
-    <!-- Erstellen-Panel -->
-    <div id="vs-create-panel" style="display:none;flex-direction:column;gap:.75rem">
-      <p class="modal-hint">Erstellt sofort einen Raum. Teile den Code mit deinem Gegner.</p>
-      <button class="big-btn primary" style="width:100%" onclick="createRoom()">Raum erstellen</button>
+      <p class="modal-hint" style="text-align:center;margin-bottom:.25rem">Erstelle einen Raum (du bist Host und stellst alles ein) oder tritt mit einem Code bei.</p>
+      <button class="big-btn primary" style="width:100%;padding:.9rem" onclick="createRoom()">Raum erstellen →</button>
+      <button class="big-btn" style="width:100%;padding:.9rem" onclick="showVsPanel('join')">Raum beitreten</button>
     </div>
     <!-- Beitreten-Panel -->
-    <div id="vs-join-panel" style="display:none;flex-direction:column;gap:.75rem">
-      <p class="modal-hint">Gib den Code von deinem Gegner ein.</p>
+    <div id="vs-join-panel" style="display:none;flex-direction:column;gap:.7rem">
+      <div class="mp-roomlist-head"><span>Offene Räume</span><button class="mp-refresh-btn" onclick="loadRoomList()" title="Aktualisieren">⟳</button></div>
+      <div id="vs-room-list"><div class="mp-empty">Lade…</div></div>
+      <div class="mp-or">oder Code eingeben</div>
       <input class="modal-input" id="vs-join-name" placeholder="Dein Name" maxlength="20" style="display:none">
-      <input class="modal-input" id="vs-join-code" placeholder="Raumcode (z.B. ABC123)" maxlength="6" style="text-transform:uppercase">
+      <div class="modal-row" style="gap:.5rem">
+        <input class="modal-input" id="vs-join-code" placeholder="z.B. ABC123" maxlength="6" style="text-transform:uppercase;flex:1">
+        <button class="big-btn" onclick="joinRoom()" style="padding:.65rem 1rem">Beitreten</button>
+      </div>
       <div class="modal-error" id="vs-join-error"></div>
-      <button class="big-btn" onclick="joinRoom()" style="width:100%">Beitreten</button>
       <button class="vs-scan-btn" onclick="openQrScanner()">📷 QR scannen</button>
     </div>
     <!-- verstecktes Feld für Host-Namen -->
@@ -358,6 +358,60 @@
       <span style="font-size:.67rem;color:var(--mist)">Warte auf Gegner…</span>
     </div>
     <button class="big-btn" style="align-self:center;font-size:.72rem;padding:.7rem 1rem" onclick="cancelRoom()">Abbrechen</button>
+  </div>
+</div>
+
+<!-- MEHRSPIELER LOBBY -->
+<div class="screen" id="mp-lobby-screen">
+  <div class="mp-lobby-box">
+    <div class="mp-lobby-header">
+      <h2 class="mp-lobby-h">Lobby</h2>
+      <div class="mp-lobby-code-row"><span class="mp-lobby-code-label">Code</span><span class="vs-code-display" id="mp-lobby-code">——</span></div>
+    </div>
+    <button class="big-btn primary mp-ready-bar" id="mp-ready-btn" onclick="toggleReady()">Bereit</button>
+    <div class="mp-start-hint" id="mp-start-hint"></div>
+    <div class="mp-lobby-grid">
+      <div class="mp-lobby-col">
+        <div class="mp-col-title">Spieler <span id="mp-lobby-count" class="mp-col-sub"></span></div>
+        <div id="mp-lobby-players"></div>
+        <div class="mp-lobby-qr-wrap">
+          <canvas id="mp-lobby-qr" width="120" height="120"></canvas>
+          <div class="qr-hint">Code/QR teilen zum Beitreten</div>
+        </div>
+      </div>
+      <div class="mp-lobby-col">
+        <div class="mp-col-title">Einstellungen <span id="mp-settings-lock" class="mp-col-sub"></span></div>
+        <div class="mp-setting-row"><label for="mp-rounds">Runden</label><input class="modal-input mp-num" id="mp-rounds" type="number" min="1" max="20" value="5" onchange="mpHostUpdateSettings()"></div>
+        <div class="mp-setting-row"><label for="mp-maxplayers">Max. Spieler</label><input class="modal-input mp-num" id="mp-maxplayers" type="number" min="2" max="50" placeholder="∞" onchange="mpHostUpdateSettings()"></div>
+        <div class="mp-mods">
+          <div class="mp-mods-title">Modifier</div>
+          <label class="mp-mod" for="mp-mod-nomove">
+            <span class="mp-mod-info"><span class="mp-mod-name">🚶 Nicht bewegen</span><span class="mp-mod-desc">Kein Umherfahren zu Nachbar-Panoramen.</span></span>
+            <input type="checkbox" id="mp-mod-nomove" onchange="mpHostUpdateSettings()"><span class="mp-switch"></span>
+          </label>
+          <label class="mp-mod" for="mp-mod-nolook">
+            <span class="mp-mod-info"><span class="mp-mod-name">🙈 Nicht umsehen</span><span class="mp-mod-desc">Ansicht fixiert – kein Drehen oder Zoomen.</span></span>
+            <input type="checkbox" id="mp-mod-nolook" onchange="mpHostUpdateSettings()"><span class="mp-switch"></span>
+          </label>
+          <label class="mp-mod" for="mp-mod-gray">
+            <span class="mp-mod-info"><span class="mp-mod-name">⬜ Schwarz-Weiß</span><span class="mp-mod-desc">Das Panorama wird in Graustufen gezeigt.</span></span>
+            <input type="checkbox" id="mp-mod-gray" onchange="mpHostUpdateSettings()"><span class="mp-switch"></span>
+          </label>
+          <label class="mp-mod" for="mp-mod-blur">
+            <span class="mp-mod-info"><span class="mp-mod-name">🌫️ Verschwommen</span><span class="mp-mod-desc">Das Panorama ist leicht unscharf.</span></span>
+            <input type="checkbox" id="mp-mod-blur" onchange="mpHostUpdateSettings()"><span class="mp-switch"></span>
+          </label>
+          <label class="mp-mod" for="mp-mod-timelimit">
+            <span class="mp-mod-info"><span class="mp-mod-name">⏱️ Zeitlimit</span><span class="mp-mod-desc">Auto-Abgabe nach <input class="mp-inline-num" id="mp-timelimit-secs" type="number" min="3" max="300" value="30" onchange="mpHostUpdateSettings()" onclick="event.stopPropagation()"> Sek.</span></span>
+            <input type="checkbox" id="mp-mod-timelimit" onchange="mpHostUpdateSettings()"><span class="mp-switch"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="mp-lobby-actions">
+      <button class="big-btn" id="mp-host-close-btn" onclick="hostCloseRoom()" style="display:none">Raum schließen</button>
+      <button class="big-btn" onclick="leaveRoom()">Verlassen</button>
+    </div>
   </div>
 </div>
 
@@ -396,6 +450,7 @@
 <!-- ERGEBNIS -->
 <div class="screen" id="result-screen" style="position:relative">
   <div id="result-map-el"></div>
+  <div id="mp-round-board" style="display:none"></div>
   <div id="vs-wait-overlay">
     <div class="wl" id="vs-wait-overlay-text">Warte auf Gegner…</div>
     <div class="vs-wait-spinner" aria-hidden="true"></div>
@@ -465,6 +520,7 @@
     </div>
     <div class="vs-rounds" id="vs-rounds"></div>
   </div>
+  <div id="mp-final-standings" style="display:none"></div>
   <div class="final-breakdown" id="final-breakdown"></div>
   <div id="play-again-vote"></div>
   <div style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center">
@@ -578,7 +634,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=20"></script>
+<script src="script.js?v=21"></script>
 <script src="patches.js?v=11"></script>
 <script src="nav.js?v=7"></script>
 <!-- CHANGELOG MODAL -->

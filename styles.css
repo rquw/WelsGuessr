@@ -545,13 +545,13 @@ body::before{
 @media(max-width:768px){#vs-opponent-guessed{top:2.7rem;font-size:.64rem;padding:.42rem .85rem}}
 
 /* ── VS-Zwischenauswertung: nur die zwei Kopf-an-Kopf-Karten ── */
-#result-screen.vs-mode .result-stats,
-#result-screen.vs-mode #score-verdict,
-#result-screen.vs-mode #inline-diff-rating,
-#result-screen.vs-mode #vs-strip,
-#result-screen.vs-mode #vs-bottom-wait,
-#result-screen.vs-mode #vs-submit-countdown,
-#result-screen.vs-mode #survival-threshold-row{display:none!important}
+#result-screen.mp-mode #inline-diff-rating,
+#result-screen.mp-mode #vs-strip,
+#result-screen.mp-mode #vs-submit-countdown,
+#result-screen.mp-mode #next-vote-bar,
+#result-screen.mp-mode .btn-row,
+#result-screen.mp-mode #survival-threshold-row{display:none!important}
+#result-screen.mp-mode #result-footer{max-height:46vh;overflow-y:auto}
 
 /* ── Result screen revamp ── */
 #result-footer{background:linear-gradient(180deg,rgba(10,22,14,.92),rgba(12,25,17,.98));padding:1rem 1.2rem;display:flex;flex-direction:column;gap:.7rem;border-top:1px solid rgba(255,255,255,.06)}
@@ -1145,4 +1145,167 @@ body::before{
 .inline-diff-stars{display:flex;gap:.2rem;justify-content:center}
 .inline-diff-confirmed{font-size:.75rem;color:var(--gold);padding:.3rem 0}
 
+/* ──────────────────────────────────────────
+   MEHRSPIELER (Lobby, Modifiers, Ergebnisse)
+────────────────────────────────────────── */
+/* Einstellungen im Erstellen-Panel */
+.mp-setting-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.mp-setting-row label{font-size:.8rem;color:var(--cream)}
+.modal-input.mp-num{width:5.5rem;text-align:center;padding:.5rem}
+.modal-input.mp-num-sm{width:4.2rem;padding:.4rem;margin-left:auto}
+.mp-mods{display:flex;flex-direction:column;gap:.4rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:.7rem .8rem}
+.mp-mods-title{font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:.1rem}
+.mp-toggle{display:flex;align-items:center;gap:.55rem;font-size:.76rem;color:var(--cream);cursor:pointer}
+.mp-toggle input[type=checkbox]{width:1.05rem;height:1.05rem;accent-color:var(--gold);flex-shrink:0;cursor:pointer}
 
+/* Lobby */
+.mp-lobby-box{width:min(440px,94vw);display:flex;flex-direction:column;align-items:center;gap:.7rem;background:linear-gradient(170deg,rgba(255,255,255,.055),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.09);border-radius:18px;padding:1.4rem 1.3rem;box-shadow:0 22px 60px rgba(0,0,0,.3)}
+.mp-lobby-h{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--cream)}
+.mp-lobby-code-row{display:flex;align-items:center;gap:.6rem}
+.mp-lobby-code-label{font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--mist)}
+#mp-lobby-qr{border-radius:8px;background:#fff;padding:5px}
+.mp-lobby-settings{font-size:.64rem;color:var(--mist);text-align:center;line-height:1.6}
+.mp-lobby-players-title{align-self:flex-start;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-top:.2rem}
+#mp-lobby-players{width:100%;display:flex;flex-direction:column;gap:.35rem;max-height:34vh;overflow-y:auto}
+.mp-player-row{display:flex;align-items:center;gap:.55rem;padding:.5rem .65rem;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}
+.mp-player-row.me{border-color:rgba(201,168,76,.45);background:rgba(201,168,76,.08)}
+.mp-player-dot{width:.65rem;height:.65rem;border-radius:50%;background:var(--mist);flex-shrink:0;opacity:.5}
+.mp-player-dot.ready{background:#7dcc6a;opacity:1;box-shadow:0 0 8px rgba(125,204,106,.6)}
+.mp-player-name{flex:1;font-size:.8rem;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mp-player-status{font-size:.62rem;color:var(--mist)}
+.mp-kick-btn{background:rgba(192,57,43,.18);border:1px solid rgba(192,57,43,.5);color:#f5b7b1;width:1.5rem;height:1.5rem;border-radius:6px;cursor:pointer;font-size:.7rem;line-height:1;flex-shrink:0}
+.mp-kick-btn:hover{background:rgba(192,57,43,.4);color:#fff}
+.mp-lobby-actions{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;width:100%;margin-top:.3rem}
+.mp-lobby-actions .big-btn{flex:1;min-width:130px}
+#mp-ready-btn.active{background:rgba(125,204,106,.18);border-color:rgba(125,204,106,.6);color:#aee79c}
+
+/* Countdown */
+#mp-countdown{display:none;position:fixed;inset:0;z-index:1300;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 45%,rgba(12,20,14,.82),rgba(3,6,4,.92));font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(5rem,28vw,16rem);color:var(--cream);text-shadow:0 0 60px rgba(201,168,76,.6),0 6px 30px rgba(0,0,0,.7)}
+#mp-countdown.show{display:flex;animation:mpCdPop .35s cubic-bezier(.16,1,.3,1)}
+@keyframes mpCdPop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* In-Game Badges */
+#mp-timer{position:absolute;top:.9rem;left:50%;transform:translateX(-50%) translateY(2.6rem);z-index:14;background:rgba(0,0,0,.7);border:1px solid rgba(201,168,76,.4);border-radius:20px;padding:.3rem .85rem;font-size:.78rem;font-weight:600;color:var(--gold-light);letter-spacing:.06em;backdrop-filter:blur(6px)}
+#mp-speed-badge{position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);z-index:14;background:linear-gradient(180deg,#f3d889,#d6ad48);color:#231a04;border-radius:20px;padding:.32rem .9rem;font-size:.78rem;font-weight:700;letter-spacing:.04em;box-shadow:0 4px 16px rgba(0,0,0,.4),0 0 18px rgba(201,168,76,.4)}
+
+/* Rundenergebnis-Board (3+ Spieler, links) */
+#mp-round-board{position:absolute;top:50%;left:clamp(.75rem,3vw,2rem);transform:translateY(-50%);z-index:20;width:min(280px,42vw);max-height:80vh;overflow-y:auto;background:linear-gradient(170deg,rgba(14,24,16,.94),rgba(10,18,12,.96));border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:.8rem .7rem;box-shadow:0 16px 50px rgba(0,0,0,.5)}
+.mp-board-title{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);text-align:center;margin-bottom:.5rem}
+.mp-board-row{display:flex;align-items:center;gap:.5rem;padding:.4rem .5rem;border-radius:8px;margin-bottom:.25rem;background:rgba(255,255,255,.04);font-size:.74rem}
+.mp-board-row.me{background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.4)}
+.mp-board-rank{width:1.4rem;text-align:center;color:var(--mist);font-weight:600}
+.mp-board-name{flex:1;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mp-board-pts{color:var(--gold-light);font-weight:600}
+
+/* Endstand (3+ Spieler) */
+#mp-final-standings{width:min(420px,92vw)}
+.mp-standings-place{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:700;color:var(--cream);text-align:center;margin-bottom:.6rem}
+.mp-standings-list{display:flex;flex-direction:column;gap:.35rem}
+.mp-standings-row{display:flex;align-items:center;gap:.6rem;padding:.55rem .7rem;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}
+.mp-standings-row.first{background:rgba(201,168,76,.12);border-color:rgba(201,168,76,.4)}
+.mp-standings-row.me{box-shadow:inset 0 0 0 1.5px rgba(201,168,76,.55)}
+.mp-standings-rank{width:1.8rem;text-align:center;font-size:.95rem}
+.mp-standings-name{flex:1;font-size:.82rem;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mp-standings-total{font-size:.82rem;font-weight:600;color:var(--gold-light)}
+
+@media(max-width:768px){
+  #mp-lobby-screen{justify-content:flex-start;overflow-y:auto;padding:calc(1rem + env(safe-area-inset-top)) .8rem calc(1.5rem + env(safe-area-inset-bottom))}
+  .mp-lobby-box{padding:1rem .9rem}
+  #mp-lobby-qr{width:120px;height:120px}
+  /* Board nach oben, kompakter, damit die Karte nutzbar bleibt */
+  #mp-round-board{top:calc(.65rem + env(safe-area-inset-top));left:.65rem;right:.65rem;width:auto;transform:none;max-height:34vh}
+  /* Timer + Speed-Badge nach oben (mittig, gestapelt unter der Top-Bar) statt unten – sonst verdeckt die Karte sie */
+  #mp-timer{left:50%;right:auto;bottom:auto;top:calc(.65rem + env(safe-area-inset-top));transform:translateX(-50%) translateY(2.6rem)}
+  #mp-speed-badge{left:50%;right:auto;bottom:auto;top:calc(.65rem + env(safe-area-inset-top));transform:translateX(-50%) translateY(5rem)}
+}
+
+/* ── Lobby: zweispaltig (Spieler | Einstellungen) ── */
+#mp-lobby-screen{justify-content:center}
+.mp-lobby-box{width:min(720px,94vw)!important}
+.mp-lobby-header{display:flex;align-items:center;justify-content:space-between;width:100%;gap:1rem;flex-wrap:wrap}
+.mp-lobby-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;width:100%;align-items:start}
+.mp-lobby-col{display:flex;flex-direction:column;gap:.55rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:.85rem .8rem;min-width:0}
+.mp-col-title{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.mp-col-sub{color:var(--mist);letter-spacing:0;text-transform:none;font-size:.62rem}
+.mp-empty{font-size:.7rem;color:var(--mist);text-align:center;padding:1rem .5rem;font-style:italic}
+.mp-lobby-qr-wrap{display:flex;flex-direction:column;align-items:center;gap:.3rem;margin-top:.4rem}
+#mp-lobby-qr{border-radius:8px;background:#fff;padding:5px}
+.mp-lobby-col .mp-mods{background:rgba(0,0,0,.18)}
+.mp-toggle input[type=checkbox]:disabled,.mp-num:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:768px){
+  .mp-lobby-grid{grid-template-columns:1fr}
+}
+
+/* ── Skeleton-Loader (site-weit) ── */
+.skeleton{position:relative;overflow:hidden;background:rgba(255,255,255,.05);border-radius:8px}
+.skeleton::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.09),transparent);animation:skelShimmer 1.25s infinite}
+@keyframes skelShimmer{100%{transform:translateX(100%)}}
+.skel-row{height:2.6rem;margin-bottom:.45rem}
+.skel-line{height:.8rem;margin:.4rem 0}
+.skel-stat{height:3.2rem;border-radius:10px}
+.skel-ach{height:3rem;margin-bottom:.3rem}
+
+/* ── Pano-Modifier-Filter ── */
+#game-screen.mp-gray #pano-strip img{filter:grayscale(1)!important}
+#game-screen.mp-blur #pano-strip img{filter:blur(7px)!important}
+#game-screen.mp-gray.mp-blur #pano-strip img{filter:grayscale(1) blur(7px)!important}
+
+/* ── Modifier: Toggle-Switches mit Beschreibung ── */
+.mp-mods{display:flex;flex-direction:column;gap:0;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:.3rem .8rem}
+.mp-mods-title{font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);padding:.55rem 0 .35rem}
+.mp-mod{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.6rem 0;border-top:1px solid rgba(255,255,255,.05);cursor:pointer;margin:0}
+.mp-mod-info{display:flex;flex-direction:column;gap:.12rem;min-width:0}
+.mp-mod-name{font-size:.8rem;color:var(--cream);font-weight:500}
+.mp-mod-desc{font-size:.62rem;color:var(--mist);line-height:1.35}
+.mp-mod input[type=checkbox]{position:absolute;opacity:0;pointer-events:none}
+.mp-switch{position:relative;width:2.5rem;height:1.4rem;border-radius:1rem;background:rgba(255,255,255,.14);flex-shrink:0;transition:background .25s}
+.mp-switch::after{content:'';position:absolute;top:2px;left:2px;width:calc(1.4rem - 4px);height:calc(1.4rem - 4px);border-radius:50%;background:#fff;transition:transform .26s cubic-bezier(.16,1,.3,1),box-shadow .2s;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.mp-mod input:checked + .mp-switch{background:var(--gold)}
+.mp-mod input:checked + .mp-switch::after{transform:translateX(1.1rem);box-shadow:0 1px 6px rgba(201,168,76,.6)}
+.mp-mod input:disabled + .mp-switch{opacity:.45}
+.mp-mod:has(input:disabled){cursor:not-allowed}
+.mp-inline-num{width:3rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:5px;color:var(--cream);font-family:'DM Mono',monospace;font-size:.7rem;padding:.12rem .25rem;text-align:center}
+
+/* ── Bereit-Bar + Start-Hinweis ── */
+.mp-ready-bar{width:100%;transition:background .2s,opacity .2s,transform .1s}
+.mp-ready-bar.is-ready{background:rgba(125,204,106,.18)!important;border-color:rgba(125,204,106,.55)!important;color:#aee79c!important;cursor:default}
+.mp-ready-bar:disabled{opacity:.9}
+.mp-start-hint{font-size:.66rem;color:var(--mist);text-align:center;min-height:1em;letter-spacing:.03em}
+
+/* ── Warte-Overlay: Namensliste ── */
+.mp-wait-names{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;margin-top:.3rem}
+.mp-wait-name{font-family:'DM Mono',monospace;font-size:.8rem;color:var(--cream);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:.35rem .85rem;animation:mpWaitPulse 1.6s ease-in-out infinite}
+@keyframes mpWaitPulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+/* ── Überspringen-Abstimmung ── */
+.mp-skip-vote{display:flex;flex-direction:column;align-items:center;gap:.5rem;margin-top:.4rem}
+.mp-skip-vote-btn{background:rgba(201,168,76,.16);border:1px solid rgba(201,168,76,.5);color:var(--gold);font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.03em;border-radius:22px;padding:.55rem 1.3rem;cursor:pointer;transition:background .15s,transform .1s}
+.mp-skip-vote-btn:hover:not(:disabled){background:rgba(201,168,76,.28);transform:translateY(-1px)}
+.mp-skip-vote-btn:disabled{opacity:.6;cursor:default}
+.mp-skip-tally{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mist)}
+#mp-skip-notice{display:none;position:fixed;top:3.1rem;left:50%;transform:translateX(-50%);background:rgba(201,168,76,.92);color:#1a1206;font-size:.66rem;font-weight:600;letter-spacing:.02em;padding:.45rem 1.05rem;border-radius:20px;z-index:300;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+#mp-skip-notice.show{display:block;animation:mpWaitPulse 1.8s ease-in-out infinite}
+@media(max-width:600px){#mp-skip-notice{top:2.7rem}}
+
+/* ── Raumliste (Beitreten) ── */
+.mp-roomlist-head{display:flex;align-items:center;justify-content:space-between;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.mp-refresh-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:var(--cream);border-radius:6px;width:1.7rem;height:1.7rem;cursor:pointer;font-size:.9rem;line-height:1;transition:transform .3s,background .15s}
+.mp-refresh-btn:hover{background:rgba(255,255,255,.12);transform:rotate(180deg)}
+#vs-room-list{display:flex;flex-direction:column;gap:.4rem;max-height:38vh;overflow-y:auto}
+.mp-room-row{display:grid;grid-template-columns:1fr auto;grid-template-areas:'host join' 'meta join';gap:.05rem .5rem;align-items:center;text-align:left;width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:.6rem .75rem;cursor:pointer;transition:border-color .15s,background .15s,transform .1s}
+.mp-room-row:hover{border-color:var(--gold);background:rgba(201,168,76,.08);transform:translateY(-1px)}
+.mp-room-host{grid-area:host;font-size:.82rem;color:var(--cream);font-weight:600}
+.mp-room-meta{grid-area:meta;font-size:.62rem;color:var(--mist)}
+.mp-room-join{grid-area:join;font-size:.72rem;color:var(--gold-light);white-space:nowrap}
+.mp-or{text-align:center;font-size:.6rem;color:var(--mist);letter-spacing:.1em;text-transform:uppercase;margin:.2rem 0 0;position:relative}
+
+/* ── Ergebnis-Listen scrollbar (max ~5 Zeilen) ── */
+.mp-standings-list{max-height:15.5rem;overflow-y:auto;padding-right:.2rem}
+#mp-round-board{max-height:min(70vh,16rem);overflow-y:auto}
+.mp-scrollhint{font-size:.58rem;color:var(--mist);text-align:center;padding-top:.3rem;opacity:.8}
+/* dünne, sichtbare Scrollbar für die Listen */
+#vs-room-list::-webkit-scrollbar,.mp-standings-list::-webkit-scrollbar,#mp-round-board::-webkit-scrollbar,#mp-lobby-players::-webkit-scrollbar{width:6px}
+#vs-room-list::-webkit-scrollbar-thumb,.mp-standings-list::-webkit-scrollbar-thumb,#mp-round-board::-webkit-scrollbar-thumb,#mp-lobby-players::-webkit-scrollbar-thumb{background:rgba(201,168,76,.45);border-radius:3px}
+
+/* Lobby-Box & VS-Modal undurchsichtiger machen (Backdrop nicht durchscheinen lassen) */
+.mp-lobby-box{background:linear-gradient(170deg,rgba(22,42,28,.97),rgba(13,26,17,.98))!important;border-color:rgba(255,255,255,.1)!important;box-shadow:0 24px 70px rgba(0,0,0,.5)!important}

@@ -255,6 +255,10 @@
     return best;
   }
 
+  // Bild-URL: nutzt das globale CDN (panoFace, in script.js) wenn vorhanden, sonst lokale images/.
+  // Bleibt so repo-übergreifend portierbar (Tern/Scharten ohne CDN nutzen weiterhin den Fallback).
+  function navImg(id, h) { var hh = String(h).padStart(3, '0'); return (typeof panoFace === 'function') ? panoFace(id, h) : ('images/' + id + '_h' + hh + '.jpg'); }
+
   // Bildaufbau, ohne Yaw-Reset (anders als loadPano)
   function preload(id) {
     return new Promise(function (resolve) {
@@ -263,7 +267,7 @@
       [0, 90, 180, 270].forEach(function (h) {
         var im = new Image();
         im.onload = im.onerror = function () { if (--left === 0) fin(); };
-        im.src = 'images/' + id + '_h' + String(h).padStart(3, '0') + '.jpg';
+        im.src = navImg(id, h);
       });
       setTimeout(fin, 700); // Fallback
     });
@@ -274,7 +278,7 @@
     strip.innerHTML = '';
     [0, 90, 180, 270, 0, 90, 180, 270].forEach(function (h) {
       var img = document.createElement('img');
-      img.src = 'images/' + id + '_h' + String(h).padStart(3, '0') + '.jpg';
+      img.src = navImg(id, h);
       img.draggable = false;
       img.oncontextmenu = function (e) { e.preventDefault(); };
       strip.appendChild(img);
@@ -304,7 +308,7 @@
     var strip = el.querySelector('.sr-strip'); strip.innerHTML = '';
     [0, 90, 180, 270, 0, 90, 180, 270].forEach(function (h) {
       var img = document.createElement('img');
-      img.src = 'images/' + id + '_h' + String(h).padStart(3, '0') + '.jpg';
+      img.src = navImg(id, h);
       img.draggable = false; img.oncontextmenu = function (e) { e.preventDefault(); };
       strip.appendChild(img);
     });
