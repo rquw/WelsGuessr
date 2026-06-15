@@ -12,6 +12,7 @@ alter table public.rooms add column if not exists max_players      integer;     
 alter table public.rooms add column if not exists rounds           integer default 5;
 alter table public.rooms add column if not exists modifiers        jsonb default '{}'::jsonb; -- {noMove,noLook,timeLimit,speedBonus}
 alter table public.rooms add column if not exists round_started_at timestamptz;
+alter table public.rooms add column if not exists site             text;                   -- 'ternberg'|'wels'|'scharten' — trennt Räume der drei Seiten
 
 -- 2) One row per player (so concurrent clients never clobber each other) ----
 create table if not exists public.room_players (

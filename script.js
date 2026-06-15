@@ -559,6 +559,7 @@ function playScoreSfx(points){
 
 // ── Panorama ──
 function loadPano(loc){
+  if(!loc)return;   // Schutz: fehlender Ort (z.B. Daten-Mismatch) → kein Absturz
   var strip=$('pano-strip'); strip.innerHTML='';
   $('pano-error').classList.remove('show');
   S.panoLoadFailed=false; S.panoZoom=1; S.panoVOff=0; updatePanoZoom();
@@ -961,6 +962,7 @@ function _clearScoreFlames(overlay){_scoreFlameEls.forEach(function(el){if(el.pa
 
 function loadRound(){
   S.current=S.locations[S.round];
+  if(!S.current){ if(S.isVs){showFinal();} return; }   // Schutz: kein Ort für diese Runde
   $('round-num').textContent=S.round+1; $('score-display').textContent=fmtN(S.score);
   hideSkipPanoBtn();
   // Mehrspieler: Modifiers + Rundenuhr anwenden; Solo: Weiter-Button sichtbar
@@ -1554,7 +1556,7 @@ async function submitAdminAddEntry(){
   var score=parseInt($('admin-add-score').value);
   var date=$('admin-add-date').value,time=$('admin-add-time').value;
   if(!_adminAddPlayer){$('admin-add-error').textContent='Kein Spieler.';return;}
-  if(isNaN(score)||score<0||score>25000){$('admin-add-error').textContent='Punkte müssen 0–25000 sein.';return;}
+  if(isNaN(score)||score<0||score>25000){$('admin-add-error').textContent='Punkte müssen 0 bis 25000 sein.';return;}
   if(!date||!time){$('admin-add-error').textContent='Datum und Uhrzeit angeben.';return;}
   var created_at=date+'T'+time+':00+02:00';
   try{
@@ -1860,6 +1862,7 @@ function closeQrScanner(){
 // Geteilte Tabellen rooms + room_players (eine Zeile pro Spieler → keine Clobber-Races).
 // Jeder Client schreibt NUR seine eigene room_players-Zeile; der Host besitzt den rooms-Zustand.
 var VS_WINS_KEY='wg_vs_wins';   // pro Repo: wg_/sg_
+var MP_SITE='wels';   // pro Repo: 'wels'/'scharten' — verhindert Cross-Site-Räume in der geteilten rooms-Tabelle
 
 function ensurePlayerId(){
   if(S.playerId)return S.playerId;
@@ -1881,6 +1884,7 @@ function openVsModal(){
   openModal('vs-modal');
 }
 function showVsChoice(){
+  stopRoomListPoll();
   var ch=$('vs-choice-btns');if(ch)ch.style.display='flex';
   var jp=$('vs-join-panel');if(jp)jp.style.display='none';
   var b=$('vs-modal-back-btn');if(b)b.style.display='none';
@@ -1892,27 +1896,37 @@ function showVsPanel(which){
   $('vs-join-panel').style.display='flex';
   // ohne Account: Namensfeld zeigen
   var nm=$('vs-join-name');if(nm)nm.style.display=loadSession().name?'none':'block';
-  loadRoomList();
+  startRoomListPoll();
 }
 // Liste offener Räume
-async function loadRoomList(){
+async function loadRoomList(silent){
   var el=$('vs-room-list');if(!el)return;
-  el.innerHTML='<div class="mp-empty">Lade…</div>';
+  if(!silent&&!el.children.length)el.innerHTML='<div class="mp-empty">Lade…</div>';
   try{
-    var rows=await sbFetch('rooms?status=eq.lobby&select=id,host_name,rounds,max_players,room_players(player_id,kicked,online,last_seen)&order=last_activity.desc&limit=40');
+    var rows=await sbFetch('rooms?status=eq.lobby&site=eq.'+MP_SITE+'&select=id,host_name,rounds,max_players,room_players(player_id,kicked,online,last_seen)&order=last_activity.desc&limit=40');
     var open=(rows||[]).map(function(r){
       var ps=(r.room_players||[]).filter(function(p){return !p.kicked&&p.online&&p.last_seen&&(Date.now()-new Date(p.last_seen).getTime())<12000;});
       return {id:r.id,host:r.host_name,n:ps.length,max:r.max_players,rounds:r.rounds};
     }).filter(function(r){return r.n>0&&(!r.max||r.n<r.max);});
-    if(!open.length){el.innerHTML='<div class="mp-empty">Keine offenen Räume – erstelle selbst einen!</div>';return;}
+    if(!open.length){el.innerHTML='<div class="mp-empty">Keine offenen Räume. Erstelle selbst einen!</div>';return;}
     el.innerHTML=open.map(function(r){
       return '<button class="mp-room-row" onclick="joinRoomFromList(\''+r.id+'\')">'+
         '<span class="mp-room-host">'+escHtml(r.host||'Raum')+'</span>'+
         '<span class="mp-room-meta">'+r.n+(r.max?('/'+r.max):'')+' 👤 · '+r.rounds+' Runden</span>'+
         '<span class="mp-room-join">Beitreten →</span></button>';
     }).join('');
-  }catch(e){el.innerHTML='<div class="mp-empty">Fehler beim Laden.</div>';}
+  }catch(e){ if(!el.children.length)el.innerHTML='<div class="mp-empty">Fehler beim Laden.</div>'; }
 }
+// Raumliste jede Sekunde aktualisieren, solange das Beitreten-Panel offen ist (stoppt sich selbst)
+function startRoomListPoll(){
+  stopRoomListPoll(); loadRoomList();
+  S._roomListIv=setInterval(function(){
+    var p=$('vs-join-panel'),m=$('vs-modal');
+    if(!p||p.style.display==='none'||!(m&&m.classList.contains('open'))){stopRoomListPoll();return;}
+    loadRoomList(true);
+  },1000);
+}
+function stopRoomListPoll(){ if(S._roomListIv){clearInterval(S._roomListIv);S._roomListIv=null;} }
 async function joinRoomFromList(code){
   var session=loadSession();
   var name=session.name||(($('vs-join-name')&&$('vs-join-name').value)||'').trim();
@@ -1924,7 +1938,7 @@ async function joinRoomFromList(code){
 // Host ändert Einstellungen live in der Lobby
 function mpHostUpdateSettings(){
   if(!S.vsIsHost||!S.vsRoom)return;
-  var rounds=Math.max(1,Math.min(20,parseInt(($('mp-rounds')&&$('mp-rounds').value)||'5',10)||5));
+  var rounds=Math.max(1,Math.min(100,parseInt(($('mp-rounds')&&$('mp-rounds').value)||'5',10)||5));
   var maxRaw=(($('mp-maxplayers')&&$('mp-maxplayers').value)||'').trim();
   var maxPlayers=maxRaw?Math.max(2,Math.min(50,parseInt(maxRaw,10)||2)):null;
   var modifiers=mpReadModifiers();
@@ -1948,7 +1962,7 @@ async function createRoom(){
   roomCreationInProgress=true;
   var code=randomCode();
   try{
-    await sbFetch('rooms','POST',{id:code,host_name:name,host_id:S.playerId,status:'lobby',max_players:maxPlayers,rounds:rounds,modifiers:modifiers,current_round:0,location_ids:[],last_activity:new Date().toISOString()});
+    await sbFetch('rooms','POST',{id:code,host_name:name,host_id:S.playerId,status:'lobby',site:MP_SITE,max_players:maxPlayers,rounds:rounds,modifiers:modifiers,current_round:0,location_ids:[],last_activity:new Date().toISOString()});
     await sbFetch('room_players','POST',{room_id:code,player_id:S.playerId,name:name,is_host:true,ready:false,online:true,last_seen:new Date().toISOString(),scores:[]});
     S.vsRoom=code;S.vsIsHost=true;S.vsMyName=name;S.isVs=false;S._mpStarted=false;
     closeModal('vs-modal');enterLobby();
@@ -1958,9 +1972,10 @@ async function createRoom(){
 async function mpJoinByCode(code,name){
   ensurePlayerId();
   try{
-    var rows=await sbFetch('rooms?id=eq.'+code+'&select=id,status,max_players,host_id,room_players(player_id,online,kicked)');
+    var rows=await sbFetch('rooms?id=eq.'+code+'&select=id,status,site,max_players,host_id,room_players(player_id,online,kicked)');
     if(!rows||!rows.length)return {error:'Raum nicht gefunden.'};
     var room=rows[0];
+    if(room.site&&room.site!==MP_SITE)return {error:'Dieser Raum gehört zu einem anderen GUESSR.'};
     var players=room.room_players||[];
     var mine=players.filter(function(p){return p.player_id===S.playerId;})[0];
     if(!mine&&room.status&&room.status!=='lobby')return {error:'Spiel läuft bereits.'};
@@ -2044,6 +2059,8 @@ function renderLobby(room,players){
   ['mp-rounds','mp-maxplayers','mp-mod-nomove','mp-mod-nolook','mp-mod-gray','mp-mod-blur','mp-mod-timelimit','mp-timelimit-secs'].forEach(function(id){setDis(id,!host);});
   var lock=$('mp-settings-lock');if(lock)lock.textContent=host?'':'(nur Host)';
   var online=mpInMatch(players).filter(function(p){return mpOnline(p)||p.player_id===S.playerId;});
+  // stabile Reihenfolge (sonst springt die Liste bei jedem Poll), nach Beitrittszeit dann ID
+  online.sort(function(a,b){var ta=a.joined_at?new Date(a.joined_at).getTime():0,tb=b.joined_at?new Date(b.joined_at).getTime():0;return ta!==tb?ta-tb:(a.player_id<b.player_id?-1:1);});
   var cnt=$('mp-lobby-count');if(cnt)cnt.textContent='('+online.length+')';
   var list=$('mp-lobby-players');
   if(list){
@@ -2065,8 +2082,8 @@ function renderLobby(room,players){
   var hint=$('mp-start-hint');
   if(hint){
     if(online.length<2) hint.textContent='Warte auf mind. 2 Spieler…';
-    else if(readyCount<online.length) hint.textContent='Bereit: '+readyCount+'/'+online.length+' – warte auf alle…';
-    else hint.textContent='Alle bereit – Start…';
+    else if(readyCount<online.length) hint.textContent='Bereit: '+readyCount+'/'+online.length+', warte auf alle…';
+    else hint.textContent='Alle bereit, Start…';
   }
   var hc=$('mp-host-close-btn');if(hc)hc.style.display=S.vsIsHost?'':'none';
 }
@@ -2228,10 +2245,17 @@ function beginMpMatch(room){
   S.mode='vs';S._vsCounted=false;S.vsWon=false;
   S.roundsTotal=Math.max(1,room.rounds||5);
   resetBaseState();S.isVs=true;
-  S.locations=(room.location_ids||[]).map(function(id){return LOCATIONS.find(function(l){return l.id===id;});}).filter(Boolean);
+  var ids=room.location_ids||[];
+  S.locations=ids.map(function(id){return LOCATIONS.find(function(l){return l.id===id;});}).filter(Boolean);
+  // Daten-Mismatch (z.B. Raum eines anderen GUESSR): zu wenige Orte aufgelöst → sauber abbrechen statt Absturz
+  if(ids.length&&S.locations.length<ids.length){
+    showDcNotice('Dieser Raum gehört zu einem anderen GUESSR.');setTimeout(hideDcNotice,4000);
+    S._mpStarted=false;leaveRoom();return;
+  }
+  S.roundsTotal=Math.max(1,Math.min(S.roundsTotal,S.locations.length||1));
   S.round=0;S.score=0;S.roundScores=[];
   S.mpRoundStartedAt=room.round_started_at?new Date(room.round_started_at).getTime():Date.now();
-  S._mpWaitForLen=0;S._mpRepushing=false;S._mpLastGuess=null;S.vsTheirDone=false;S._mpAdvanceAt=0;S._mpSkipVotedRound=-1;
+  S._mpWaitForLen=0;S._mpRepushing=false;S._mpLastGuess=null;S.vsTheirDone=false;S._mpAdvanceAt=0;S._mpSkipVotedRound=-1;S._mpAutoSubmitting=false;
   var others=mpInMatch(S.mpPlayers).filter(function(p){return p.player_id!==S.playerId;});
   S.vsTheirName=others[0]?others[0].name:'Gegner';
   var nP=mpInMatch(S.mpPlayers).length;
@@ -2256,7 +2280,7 @@ function goToMpRound(targetRound,room){
   mpClearRoundClock();
   if(S._mpRevealIv){clearInterval(S._mpRevealIv);S._mpRevealIv=null;}
   S.round=targetRound;
-  S.vsTheirDone=false;S._mpWaitForLen=0;S._mpRepushing=false;S._mpLastGuess=null;S._mpAdvanceAt=0;S._mpRevealed=false;S._mpSkipVotedRound=-1;
+  S.vsTheirDone=false;S._mpWaitForLen=0;S._mpRepushing=false;S._mpLastGuess=null;S._mpAdvanceAt=0;S._mpRevealed=false;S._mpSkipVotedRound=-1;S._mpAutoSubmitting=false;
   hideVsWaitOverlay();mpRemoveSkipUI();mpHideSkipNotice();
   var board=$('mp-round-board');if(board){board.style.display='none';board.innerHTML='';}
   var row=$('vs-their-guess-row');if(row){row.style.display='none';row.innerHTML='';}
@@ -2275,11 +2299,10 @@ function mpHostMaybeAdvance(room,players){
   var mod=room.modifiers||{};
   var elapsed=(Date.now()-(S.mpRoundStartedAt||Date.now()))/1000;
   var timeUp=mod.timeLimit&&elapsed>(mod.timeLimit+5);
-  // Überspringen-Abstimmung: ab 3 Spielern, >=60% Ja-Stimmen → sofort vorrücken
-  var skipVotesN=online.filter(function(p){return p.skip_vote===S.round;}).length;
-  var skipForce=(online.length>=3)&&(skipVotesN>=mpSkipNeeded(online.length));
+  // Überspringen-Abstimmung: ab 3 Spielern, genug Ja-Stimmen → vorrücken (mit Ergebnis-Anzeige davor)
+  var skipForce=mpSkipInfo(players).triggered;
   if(allDone||timeUp||skipForce){
-    if(!S._mpAdvanceAt)S._mpAdvanceAt=Date.now()+((allDone&&!skipForce)?4000:0);
+    if(!S._mpAdvanceAt)S._mpAdvanceAt=Date.now()+((allDone||skipForce)?4000:0);
     if(Date.now()<S._mpAdvanceAt)return;
     S._mpAdvanceLock=true;S._mpAdvanceAt=0;
     var next=S.round+1;
@@ -2364,12 +2387,14 @@ function mpUpdateLiveState(room,players){
   if(!S._mpWaitForLen)return; // ich habe diese Runde noch nicht abgegeben
   var onlineN=inMatch.filter(function(p){return mpOnline(p)||p.player_id===S.playerId;});
   var notDone=onlineN.filter(function(p){return (p.scores||[]).length<=S.round;});
-  if(notDone.length>0){
+  var skipGo=mpSkipInfo(players).triggered;
+  if(notDone.length>0&&!skipGo){
     // Noch nicht alle fertig → nur Warte-Overlay mit den noch ratenden Spielern, KEIN Ergebnis
     showMpWaitOverlay(notDone.map(function(p){return p.name;}));
-    mpRenderSkipUI(onlineN);
+    mpRenderSkipUI(players);
     return;
   }
+  // Alle fertig ODER Überspringen durchgewinkt → Ergebnis zeigen (Noch-Ratende erscheinen als „…")
   mpRemoveSkipUI();
   // Alle fertig → Ergebnis einmalig aufdecken + Countdown
   if(!S._mpRevealed){
@@ -2397,6 +2422,16 @@ function mpUpdateLiveState(room,players){
 // bei >=60% Ja-Stimmen wird die Runde übersprungen. In 2er-Lobbys deaktiviert.
 var MP_SKIP_SUBMIT_PCT=0.4, MP_SKIP_VOTE_PCT=0.6;
 function mpSkipNeeded(lobbyN){ return Math.ceil(MP_SKIP_VOTE_PCT*lobbyN); }
+function mpSkipInfo(players){
+  var on=mpInMatch(players).filter(function(p){return mpOnline(p)||p.player_id===S.playerId;});
+  var lobbyN=on.length;
+  var submittedN=on.filter(function(p){return (p.scores||[]).length>S.round;}).length;
+  var votes=on.filter(function(p){return p.skip_vote===S.round;}).length;
+  var needed=mpSkipNeeded(lobbyN);
+  return {on:on,lobbyN:lobbyN,submittedN:submittedN,votes:votes,needed:needed,
+    eligible:(lobbyN>=3&&submittedN>=Math.ceil(MP_SKIP_SUBMIT_PCT*lobbyN)),
+    triggered:(lobbyN>=3&&votes>=needed)};
+}
 function mpVoteSkip(){
   if(!S.vsRoom)return;
   S._mpSkipVotedRound=S.round; // sofortiges UI-Feedback bis zum nächsten Poll
@@ -2404,16 +2439,13 @@ function mpVoteSkip(){
   var b=$('mp-skip-vote-btn');if(b){b.disabled=true;b.textContent='Stimme abgegeben ✓';}
 }
 // Button im Warte-Overlay für Spieler, die schon abgegeben haben
-function mpRenderSkipUI(onlineN){
+function mpRenderSkipUI(players){
   var o=$('vs-wait-overlay');if(!o)return;
-  var lobbyN=onlineN.length;
-  var submittedN=onlineN.filter(function(p){return (p.scores||[]).length>S.round;}).length;
-  var skipVotesN=onlineN.filter(function(p){return p.skip_vote===S.round;}).length;
-  var meRow=onlineN.filter(function(p){return p.player_id===S.playerId;})[0];
+  var si=mpSkipInfo(players);
+  var meRow=si.on.filter(function(p){return p.player_id===S.playerId;})[0];
   var iVoted=!!(meRow&&meRow.skip_vote===S.round)||S._mpSkipVotedRound===S.round;
-  var eligible=(lobbyN>=3)&&(submittedN>=Math.ceil(MP_SKIP_SUBMIT_PCT*lobbyN));
   var wrap=$('mp-skip-vote');
-  if(!eligible){ if(wrap)wrap.remove(); return; }
+  if(!si.eligible){ if(wrap)wrap.remove(); return; }
   if(!wrap){
     wrap=document.createElement('div');wrap.id='mp-skip-vote';wrap.className='mp-skip-vote';
     wrap.innerHTML='<button class="mp-skip-vote-btn" id="mp-skip-vote-btn" onclick="mpVoteSkip()"></button><div class="mp-skip-tally" id="mp-skip-tally"></div>';
@@ -2421,7 +2453,7 @@ function mpRenderSkipUI(onlineN){
   }
   var b=$('mp-skip-vote-btn'),tally=$('mp-skip-tally');
   if(b){ b.disabled=iVoted; b.textContent=iVoted?'Stimme abgegeben ✓':'Stimmen fürs Überspringen'; }
-  if(tally)tally.textContent=skipVotesN+'/'+lobbyN+' fürs Überspringen';
+  if(tally)tally.textContent=si.votes+'/'+si.needed+' fürs Überspringen';
 }
 function mpRemoveSkipUI(){ var w=$('mp-skip-vote');if(w)w.remove(); }
 // Hinweis für noch ratende Spieler auf dem Spielbildschirm
@@ -2434,13 +2466,18 @@ function mpShowSkipNotice(x,y){ var el=mpEnsureSkipNotice();if(!el)return;el.tex
 function mpHideSkipNotice(){ var el=$('mp-skip-notice');if(el)el.classList.remove('show'); }
 function mpMaybeShowSkipNotice(room,players){
   if(!$('game-screen').classList.contains('active')){mpHideSkipNotice();return;}
-  var onlineN=mpInMatch(players).filter(function(p){return mpOnline(p)||p.player_id===S.playerId;});
-  var lobbyN=onlineN.length;
-  var meRow=onlineN.filter(function(p){return p.player_id===S.playerId;})[0];
+  var si=mpSkipInfo(players);
+  var meRow=si.on.filter(function(p){return p.player_id===S.playerId;})[0];
   var iSubmitted=!!(meRow&&(meRow.scores||[]).length>S.round);
-  var skipVotesN=onlineN.filter(function(p){return p.skip_vote===S.round;}).length;
-  if(lobbyN>=3&&!iSubmitted&&skipVotesN>0)mpShowSkipNotice(skipVotesN,lobbyN);
+  if(si.lobbyN>=3&&!iSubmitted&&si.votes>0)mpShowSkipNotice(si.votes,si.needed);
   else mpHideSkipNotice();
+  // Abstimmung durch und ich rate noch → automatisch abgeben, damit ich das Rundenergebnis sehe
+  // (statt direkt ins nächste Panorama zu springen).
+  if(si.triggered&&!iSubmitted&&!S._mpAutoSubmitting){
+    S._mpAutoSubmitting=true;
+    if(!S.guessLatLng)S.guessLatLng={lat:CENTER[0],lng:CENTER[1]};
+    submitGuess();
+  }
 }
 function renderMpRoundBoard(inMatch){
   var board=$('mp-round-board');if(!board)return;

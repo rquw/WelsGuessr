@@ -203,7 +203,7 @@
       <div class="menu-card-bg" id="vs-card-bg"></div>
       <div class="menu-card-left">
         <div class="menu-card-title">Mehrspieler</div>
-        <div class="menu-card-sub">Privater Raum mit Freunden – der Host bestimmt die Regeln.</div>
+        <div class="menu-card-sub">Privater Raum mit Freunden, der Host bestimmt die Regeln.</div>
       </div>
       <div class="menu-card-right">
         <button class="menu-card-cta" onclick="openVsModal();event.stopPropagation()">Spielen →</button>
@@ -381,7 +381,7 @@
       </div>
       <div class="mp-lobby-col">
         <div class="mp-col-title">Einstellungen <span id="mp-settings-lock" class="mp-col-sub"></span></div>
-        <div class="mp-setting-row"><label for="mp-rounds">Runden</label><input class="modal-input mp-num" id="mp-rounds" type="number" min="1" max="20" value="5" onchange="mpHostUpdateSettings()"></div>
+        <div class="mp-setting-row"><label for="mp-rounds">Runden</label><input class="modal-input mp-num" id="mp-rounds" type="number" min="1" max="100" value="5" onchange="mpHostUpdateSettings()"></div>
         <div class="mp-setting-row"><label for="mp-maxplayers">Max. Spieler</label><input class="modal-input mp-num" id="mp-maxplayers" type="number" min="2" max="50" placeholder="∞" onchange="mpHostUpdateSettings()"></div>
         <div class="mp-mods">
           <div class="mp-mods-title">Modifier</div>
@@ -390,7 +390,7 @@
             <input type="checkbox" id="mp-mod-nomove" onchange="mpHostUpdateSettings()"><span class="mp-switch"></span>
           </label>
           <label class="mp-mod" for="mp-mod-nolook">
-            <span class="mp-mod-info"><span class="mp-mod-name">🙈 Nicht umsehen</span><span class="mp-mod-desc">Ansicht fixiert – kein Drehen oder Zoomen.</span></span>
+            <span class="mp-mod-info"><span class="mp-mod-name">🙈 Nicht umsehen</span><span class="mp-mod-desc">Ansicht fixiert, kein Drehen oder Zoomen.</span></span>
             <input type="checkbox" id="mp-mod-nolook" onchange="mpHostUpdateSettings()"><span class="mp-switch"></span>
           </label>
           <label class="mp-mod" for="mp-mod-gray">
@@ -620,7 +620,7 @@
   <div class="modal" id="admin-add-entry-modal-inner">
     <h2 style="font-size:1.2rem;text-align:center">Eintrag hinzufügen</h2>
     <p id="admin-add-entry-player" class="modal-hint" style="text-align:center;font-size:.75rem"></p>
-    <input class="modal-input" id="admin-add-score" type="number" placeholder="Punkte (0–25000)" min="0" max="25000">
+    <input class="modal-input" id="admin-add-score" type="number" placeholder="Punkte (0 bis 25000)" min="0" max="25000">
     <input class="modal-input" id="admin-add-date" type="date">
     <input class="modal-input" id="admin-add-time" type="time">
     <div class="modal-error" id="admin-add-error"></div>
@@ -634,7 +634,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=21"></script>
+<script src="script.js?v=22"></script>
 <script src="patches.js?v=11"></script>
 <script src="nav.js?v=7"></script>
 <!-- CHANGELOG MODAL -->
