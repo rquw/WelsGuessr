@@ -391,10 +391,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (opts.totalScore >= 5000  && !have.has('score_5k'))   toUnlock.push('score_5k');
       if (opts.totalScore >= 15000 && !have.has('score_15k'))  toUnlock.push('score_15k');
 
-      // Daily milestones
-      if (opts.dailyCount >= 1  && !have.has('daily_1'))   toUnlock.push('daily_1');
-      if (opts.dailyCount >= 5  && !have.has('daily_5'))   toUnlock.push('daily_5');
-      if (opts.dailyCount >= 30 && !have.has('daily_30'))  toUnlock.push('daily_30');
+      // Daily milestones — nur direkt nach einer Täglichen Challenge prüfen
+      if (opts.isDaily && opts.dailyCount >= 1  && !have.has('daily_1'))   toUnlock.push('daily_1');
+      if (opts.isDaily && opts.dailyCount >= 5  && !have.has('daily_5'))   toUnlock.push('daily_5');
+      if (opts.isDaily && opts.dailyCount >= 30 && !have.has('daily_30'))  toUnlock.push('daily_30');
 
       // Streak (more forgiving)
       if (opts.streak >= 2  && !have.has('streak_2'))   toUnlock.push('streak_2');
@@ -548,6 +548,7 @@ function _patchedAfterFinalExtras() {
         totalScore:    S.score,
         survivalWin:   S.mode === 'survival' && !S.survivalEliminated && S.round >= S.roundsTotal - 1,
         survivalRound: S.mode === 'survival' ? (S.round || 0) : 0,
+        isDaily:       S.mode === 'daily',
         dailyCount:    dailyCount,
         minDist:       S.minDist,
         nightOwl:      (hour >= 0 && hour < 5),

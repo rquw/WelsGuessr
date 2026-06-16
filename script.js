@@ -314,11 +314,11 @@ function setBackdrop(imgSrc){
   if(!imgSrc){bd.classList.remove('show');bd.style.backgroundImage='';return;}
   bd.style.backgroundImage='url('+imgSrc+')'; bd.classList.add('show');
 }
-// ── Bild-CDN (Cloudinary, kostenlos) ──
-// Panorama-Bilder liegen NICHT mehr im Git-Repo, sondern auf Cloudinary (Original-Auslieferung, keine Transformationen).
-// >>> Nach dem Cloudinary-Signup hier den eigenen Cloud-Namen eintragen: <<<
-var CLOUDINARY_CLOUD='dr7qhc0hn';
-var IMG_BASE='https://res.cloudinary.com/'+CLOUDINARY_CLOUD+'/image/upload/welsguessr/';
+// ── Bild-CDN (jsDelivr über GitHub-Repo, kostenlos, KEIN Bandbreitenlimit) ──
+// Panorama-Bilder liegen im separaten öffentlichen Repo IMG_REPO und werden über jsDelivr ausgeliefert.
+// (Avatare laufen weiterhin über Cloudinary – kleines Volumen.)
+var IMG_REPO='rquw/welsguessr-images';   // pro Stadt eigenes Bild-Repo
+var IMG_BASE='https://cdn.jsdelivr.net/gh/'+IMG_REPO+'@main/';
 function panoFace(id,h){ return IMG_BASE+id+'_h'+String(h).padStart(3,'0')+'.jpg'; }
 function panoThumb(id){ return IMG_BASE+id+'_h000.jpg'; }
 function getRandomLocationImage(){
@@ -352,15 +352,16 @@ function show(id){
 function setMenuCardBackdrops(){
   if(!Array.isArray(LOCATIONS)||!LOCATIONS.length)return;
   var getRand=function(){return LOCATIONS[Math.floor(Math.random()*LOCATIONS.length)];};
+  function setBg(el,u){ if(!el)return; if(window.pgSetBg)pgSetBg(el,u); else el.style.backgroundImage='url('+u+')'; }
   ['solo-card-bg','vs-card-bg','survival-card-bg'].forEach(function(id){
-    var el=$(id); if(!el)return; el.style.backgroundImage='url('+panoThumb(getRand().id)+')';
+    var el=$(id); if(!el)return; setBg(el,panoThumb(getRand().id));
   });
   var dailyBg=$('daily-card-bg');
-  if(dailyBg){var dloc=getDailyLocationForKey(getViennaDateKey());if(dloc)dailyBg.style.backgroundImage='url('+panoThumb(dloc.id)+')';}
+  if(dailyBg){var dloc=getDailyLocationForKey(getViennaDateKey());if(dloc)setBg(dailyBg,panoThumb(dloc.id));}
   var dpBg=$('daily-preview-bg');
   if(dpBg){
     var dLoc2=getDailyLocationForKey(getViennaDateKey());
-    if(dLoc2){var src2=panoThumb(dLoc2.id);dpBg.style.backgroundImage='url('+src2+')';var img=new Image();img.onload=function(){dpBg.classList.add('loaded');};img.src=src2;}
+    if(dLoc2){var src2=panoThumb(dLoc2.id);setBg(dpBg,src2);var img=new Image();img.onload=function(){dpBg.classList.add('loaded');};img.src=src2;}
   }
 }
 
@@ -567,10 +568,22 @@ function loadPano(loc){
   [0,90,180,270].forEach(function(h){
     var src=panoFace(loc.id,h);
     var img=new Image(); img.src=src;
-    img.onerror=function(){errors++;if(errors===4){S.panoLoadFailed=true;setTimeout(function(){skipToNextLocation();},400);}};
+    img.onerror=function(){errors++;if(errors===4){
+      S.panoLoadFailed=true; S._panoFailStreak=(S._panoFailStreak||0)+1;
+      if(S._panoFailStreak>=3){
+        // mehrere Standorte hintereinander tot → kein Endlos-Skip, sondern klare Meldung (z.B. CDN-Ausfall)
+        var pe=$('pano-error'); if(pe){ var pp=pe.querySelector('p'); if(pp)pp.innerHTML='Bilder konnten gerade nicht geladen werden.<br>Bitte später nochmal versuchen.'; pe.classList.add('show'); }
+        if(_ov&&_ov.parentNode)_ov.parentNode.removeChild(_ov);
+      } else { setTimeout(function(){skipToNextLocation();},400); }
+    }};
   });
-  [0,90,180,270,0,90,180,270].forEach(function(h){
+  var _pc=$('pano-container'); var _ov=null;
+  if(_pc){ _ov=document.createElement('div'); _ov.className='pano-loading'; _ov.innerHTML='<div class="pano-spinner"></div>'; _pc.appendChild(_ov); }   // sauberer Lade-Spinner bis die Bilder da sind
+  var _disp=[0,90,180,270,0,90,180,270], _ld=0;
+  function _tileDone(){ if(++_ld>=_disp.length&&_ov&&_ov.parentNode){_ov.parentNode.removeChild(_ov);} }
+  _disp.forEach(function(h){
     var img=document.createElement('img');
+    img.onload=function(){ S._panoFailStreak=0; _tileDone(); }; img.onerror=_tileDone;
     img.src=panoFace(loc.id,h);
     img.draggable=false; img.oncontextmenu=function(e){e.preventDefault();}; strip.appendChild(img);
   });
@@ -2034,7 +2047,7 @@ function enterLobby(){
   var cd=$('mp-lobby-code');if(cd)cd.textContent=S.vsRoom;
   try{var qc=$('mp-lobby-qr');if(qc)drawQR(qc,window.location.origin+window.location.pathname+'?join='+S.vsRoom);}catch(e){}
   S._mpSettingsInit=false;S._mpStarting=false;
-  var rb=$('mp-ready-btn');if(rb){rb.disabled=false;rb.textContent='Bereit';rb.classList.remove('is-ready');}
+  ['mp-ready-btn','mp-ready-btn-bot'].forEach(function(id){var rb=$(id);if(rb){rb.disabled=false;rb.textContent='Bereit';rb.classList.remove('is-ready');}});
   startMpPoll();startMpHeartbeat();
 }
 function renderLobby(room,players){
@@ -2067,17 +2080,19 @@ function renderLobby(room,players){
     list.innerHTML=online.length?online.map(function(p){
       var you=p.player_id===S.playerId,ph=p.player_id===room.host_id;
       var kick=(S.vsIsHost&&!ph)?'<button class="mp-kick-btn" onclick="kickPlayer(\''+p.player_id+'\')" title="Entfernen">✕</button>':'';
+      var dot=(you&&!p.ready)
+        ? '<span class="mp-player-dot clickable" onclick="toggleReady()" title="Klicken = bereit"></span>'
+        : '<span class="mp-player-dot'+(p.ready?' ready':'')+'"></span>';
       return '<div class="mp-player-row'+(you?' me':'')+'">'+
-        '<span class="mp-player-dot'+(p.ready?' ready':'')+'"></span>'+
+        dot+
         '<span class="mp-player-name">'+escHtml(p.name)+(ph?' 👑':'')+(you?' (Du)':'')+'</span>'+
         '<span class="mp-player-status">'+(p.ready?'Bereit':'…')+'</span>'+kick+'</div>';
     }).join(''):'<div class="mp-empty">Warte auf Spieler…</div>';
   }
   var meRow=online.filter(function(p){return p.player_id===S.playerId;})[0];
   var iAmReady=!!(meRow&&meRow.ready);
-  // Bereit-Button: einmalig, danach ausgegraut. Jeder (auch Host) muss bereit machen.
-  var rb=$('mp-ready-btn');
-  if(rb){ rb.textContent=iAmReady?'Bereit ✓':'Bereit'; rb.disabled=iAmReady; rb.classList.toggle('is-ready',iAmReady); }
+  // Bereit-Button (oben + unten): einmalig, danach ausgegraut. Jeder (auch Host) muss bereit machen.
+  ['mp-ready-btn','mp-ready-btn-bot'].forEach(function(id){ var rb=$(id); if(rb){ rb.textContent=iAmReady?'Bereit ✓':'Bereit'; rb.disabled=iAmReady; rb.classList.toggle('is-ready',iAmReady); } });
   var readyCount=online.filter(function(p){return p.ready;}).length;
   var hint=$('mp-start-hint');
   if(hint){
@@ -2089,7 +2104,7 @@ function renderLobby(room,players){
 }
 async function toggleReady(){
   // Einweg: einmal bereit, bleibt bereit (kein Zurück), dann startet automatisch wenn alle bereit
-  try{ await sbFetch(_pq(),'PATCH',{ready:true,last_seen:new Date().toISOString()}); var rb=$('mp-ready-btn');if(rb){rb.disabled=true;rb.textContent='Bereit ✓';rb.classList.add('is-ready');} }catch(e){}
+  try{ await sbFetch(_pq(),'PATCH',{ready:true,last_seen:new Date().toISOString()}); ['mp-ready-btn','mp-ready-btn-bot'].forEach(function(id){var rb=$(id);if(rb){rb.disabled=true;rb.textContent='Bereit ✓';rb.classList.add('is-ready');}}); }catch(e){}
 }
 async function kickPlayer(pid){
   if(!S.vsIsHost)return;
@@ -2326,14 +2341,20 @@ function mpClearRoundClock(){ if(S._mpClock){clearInterval(S._mpClock);S._mpCloc
 function mpStartRoundClock(){
   mpClearRoundClock();
   var mod=S.mpModifiers||{};
-  var timerEl=$('mp-timer');if(timerEl)timerEl.style.display=mod.timeLimit?'block':'none';
+  var timerEl=$('mp-timer');if(timerEl){timerEl.style.display=mod.timeLimit?'block':'none';timerEl.classList.remove('mp-timer-urgent');}
   if(!mod.timeLimit)return;
   S._mpClock=setInterval(function(){
     if(!$('game-screen').classList.contains('active'))return;
     var left=Math.ceil(mod.timeLimit-(Date.now()-(S.mpRoundStartedAt||Date.now()))/1000);
-    if(timerEl)timerEl.textContent='⏱ '+Math.max(0,left)+'s';
-    if(left<=0){ mpClearRoundClock(); if($('game-screen').classList.contains('active')){ if(!S.guessLatLng)S.guessLatLng={lat:CENTER[0],lng:CENTER[1]}; submitGuess(); } }
+    if(timerEl){timerEl.textContent='⏱ '+Math.max(0,left)+'s';timerEl.classList.toggle('mp-timer-urgent',left<=5&&left>0);}
+    if(left<=0){ mpClearRoundClock(); if(timerEl)timerEl.classList.remove('mp-timer-urgent'); if($('game-screen').classList.contains('active')){ if(!S.guessLatLng)S.guessLatLng={lat:CENTER[0],lng:CENTER[1]}; mpShowTimeUp(); submitGuess(); } }
   },250);
+}
+// kurze „Zeit ist um!"-Einblendung, wenn der Timer automatisch abgibt
+function mpShowTimeUp(){
+  var el=$('mp-timeup');
+  if(!el){ el=document.createElement('div'); el.id='mp-timeup'; el.textContent='⏰ Zeit ist um!'; (($('game-screen'))||document.body).appendChild(el); }
+  el.classList.add('show'); setTimeout(function(){ el.classList.remove('show'); },1100);
 }
 
 // ── Abgeben + Erkennung ──
@@ -2429,7 +2450,7 @@ function mpSkipInfo(players){
   var votes=on.filter(function(p){return p.skip_vote===S.round;}).length;
   var needed=mpSkipNeeded(lobbyN);
   return {on:on,lobbyN:lobbyN,submittedN:submittedN,votes:votes,needed:needed,
-    eligible:(lobbyN>=3&&submittedN>=Math.ceil(MP_SKIP_SUBMIT_PCT*lobbyN)),
+    eligible:(lobbyN>=3&&submittedN>=Math.ceil(MP_SKIP_SUBMIT_PCT*lobbyN)&&((Date.now()-(S.mpRoundStartedAt||Date.now()))/1000>=30)),
     triggered:(lobbyN>=3&&votes>=needed)};
 }
 function mpVoteSkip(){
@@ -2764,7 +2785,7 @@ async function checkAndUnlockAchievements(opts){
     if(opts.totalScore>=20000&&!have.has('score_20k'))toUnlock.push('score_20k');
     if(opts.totalScore>=25000&&!have.has('score_25k'))toUnlock.push('score_25k');
     if(opts.survivalWin&&!have.has('survival_win'))toUnlock.push('survival_win');
-    if(opts.dailyCount>=10&&!have.has('daily_10'))toUnlock.push('daily_10');
+    if(opts.isDaily&&opts.dailyCount>=10&&!have.has('daily_10'))toUnlock.push('daily_10');
     for(var i=0;i<toUnlock.length;i++){
       var key=toUnlock[i];
       try{await sbFetch('achievements','POST',{player_name:session.name,achievement_key:key});}catch(e){}

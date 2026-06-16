@@ -4,11 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WelsGuessr</title>
+<!-- SPA-Deep-Link: stellt /?/spielen (von 404.html) zurück auf /spielen, bevor die App lädt -->
+<script>(function(l){if(l.search[1]==='/'){var d=l.search.slice(1).split('&').map(function(s){return s.replace(/~and~/g,'&');}).join('?');window.history.replaceState(null,null,l.pathname.slice(0,-1)+d+l.hash);}}(window.location));</script>
 <script>document.title='WelsGuessr';</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=16">
+<link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -143,7 +145,7 @@
     <div class="info-section">
       <div class="info-section-label">Info</div>
       <div class="info-section-title">Was ist WelsGuessr?</div>
-      <div class="info-section-body">WelsGuesser ist ein Spiel, wo man ein zufälliges Bild innerhalb Wels bekommt, und auf der Karte die Position anzeigen muss. Die „Tägliche Challenge" ist für jeden gleich und nimmt eine zufällige Position täglich um 00:00. Erstelle gerne einen Account!</div>
+      <div class="info-section-body">WelsGuesser ist ein Spiel, wo man ein zufälliges Bild innerhalb Wels bekommt, und auf der Karte die Position anzeigen muss. Die „Tägliche Challenge" ist für jeden gleich und nimmt eine zufällige Position täglich um 00:00!</div>
     </div>
     <div class="info-section">
       <div class="info-section-label">Kontakt</div>
@@ -408,6 +410,7 @@
         </div>
       </div>
     </div>
+    <button class="big-btn primary mp-ready-bar" id="mp-ready-btn-bot" onclick="toggleReady()">Bereit</button>
     <div class="mp-lobby-actions">
       <button class="big-btn" id="mp-host-close-btn" onclick="hostCloseRoom()" style="display:none">Raum schließen</button>
       <button class="big-btn" onclick="leaveRoom()">Verlassen</button>
@@ -634,9 +637,11 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=22"></script>
-<script src="patches.js?v=11"></script>
+<script src="script.js?v=26"></script>
+<script src="patches.js?v=12"></script>
 <script src="nav.js?v=7"></script>
+<script src="profile.js?v=5"></script>
+<script src="router.js?v=1"></script>
 <!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">
   <div class="modal changelog-modal-inner" id="changelog-modal-inner">
