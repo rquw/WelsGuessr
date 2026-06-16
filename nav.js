@@ -372,27 +372,7 @@
       finishDrive(target);
     }
 
-    preload(target.id).then(function () {
-      // „Fahr"-Effekt: kurz nach vorne ins Bild zoomen, dann wechseln und sanft zurück (wie Google Earth)
-      if (cont) {
-        cont.style.transformOrigin = '50% 56%';
-        cont.style.transition = 'transform .30s cubic-bezier(.4,0,.65,1), filter .30s';
-        cont.style.transform = 'scale(1.42)';
-        cont.style.filter = 'brightness(1.05)';
-        setTimeout(function () {
-          swap();
-          cont.style.transition = 'none';
-          cont.style.transform = 'scale(1.16)';
-          void cont.offsetWidth;                  // Reflow erzwingen
-          cont.style.transition = 'transform .26s ease-out, filter .26s';
-          cont.style.transform = 'scale(1)';
-          cont.style.filter = '';
-          setTimeout(function () { cont.style.transition = ''; cont.style.transformOrigin = ''; }, 300);
-        }, 300);
-      } else {
-        swap();
-      }
-    });
+    preload(target.id).then(function () { swap(); });   // sofortiger Wechsel (keine Animation)
   }
 
   function finishDrive(target) {

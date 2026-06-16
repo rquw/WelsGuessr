@@ -619,11 +619,14 @@ var PANO_MIN_ZOOM=1, PANO_MAX_ZOOM=3.2;
 function clampZoom(z){return Math.max(PANO_MIN_ZOOM,Math.min(PANO_MAX_ZOOM,z));}
 function updatePanoZoom(){
   var strip=$('pano-strip'),cont=$('pano-container'); if(!strip)return;
-  var ch=cont?cont.clientHeight:0, H=S.panoZoom*ch;
-  strip.style.height=(S.panoZoom*100)+'%';
-  // vertikalen Versatz (px) anwenden & einklemmen, damit nie schwarz oben/unten erscheint
+  // Mobile: leichter Overscan, damit nie ein schwarzer Rand zu sehen ist
+  var coverPad=(typeof window!=='undefined'&&window.innerWidth<=768)?2.5:0;
+  var ch=cont?cont.clientHeight:0;
+  var zh=S.panoZoom*100+coverPad, H=ch*zh/100;
+  strip.style.height=zh+'%';
   if(typeof S.panoVOff!=='number')S.panoVOff=0;
   var minOff=ch-H; if(minOff>0)minOff=0;
+  if(S.panoZoom===1&&coverPad)S.panoVOff=minOff/2;   // Overscan vertikal zentrieren
   if(S.panoVOff>0)S.panoVOff=0; else if(S.panoVOff<minOff)S.panoVOff=minOff;
   strip.style.marginTop=(ch?S.panoVOff:0)+'px';
 }
@@ -1373,18 +1376,48 @@ function setLbSort(sort){
 }
 function openLeaderboard(){openModal('lb-modal');loadLeaderboardData();}
 
-// ── Gesamtpunkte-Zähler (Startseite, alle 10s) ──
-var _tpVal=0,_tpAnim=null;
+// ── Gesamtpunkte-Zähler (Startseite, alle 10s) + Details/Meilenstein ──
+var _tpVal=0,_tpAnim=null,_tpStats=null;
 async function loadTotalPoints(){
-  var el=$('total-points-num'); if(!el)return;
+  var el=$('total-points-num');
   try{
-    var res=await sbFetch('rpc/wels_total_points');
-    var total = (typeof res==='number') ? res
-      : Array.isArray(res) ? (typeof res[0]==='number'?res[0]:((res[0]&&(res[0].wels_total_points!=null?res[0].wels_total_points:res[0].sum))||0))
-      : (res&&res.sum)||0;
-    total=parseInt(total,10)||0;
-    animateTotalPoints(el,_tpVal,total); _tpVal=total;
+    var s=await sbFetch('rpc/wels_points_stats');
+    if(Array.isArray(s))s=s[0];
+    if(s&&s.wels_points_stats)s=s.wels_points_stats;
+    _tpStats=s||{};
+    var total=parseInt(_tpStats.total,10)||0;
+    if(el){ animateTotalPoints(el,_tpVal,total); _tpVal=total; }
+    renderMilestoneLine();
+    if($('total-points-modal')&&$('total-points-modal').classList.contains('open'))renderTotalPointsModal();
   }catch(e){}
+}
+function renderMilestoneLine(){
+  var ml=$('total-points-milestone'); if(!ml)return;
+  var m=parseInt((_tpStats&&_tpStats.milestone)||'',10)||0;
+  if(m>0){ var pct=Math.min(100,Math.round(_tpVal/m*100)); ml.style.display=''; ml.textContent='🎯 Meilenstein '+fmtN(m)+' · '+pct+'%'; }
+  else ml.style.display='none';
+}
+function openTotalPointsDetails(){ openModal('total-points-modal'); renderTotalPointsModal(); loadTotalPoints(); }
+function renderTotalPointsModal(){
+  var s=_tpStats||{};
+  var total=parseInt(s.total,10)||0, today=parseInt(s.today,10)||0;
+  var t1=$('tpd-total'); if(t1)t1.textContent=fmtN(total);
+  var t2=$('tpd-today'); if(t2)t2.textContent=fmtN(today);
+  var tp=$('tpd-top'); if(tp)tp.textContent=s.top_name?(s.top_name+' · '+fmtN(parseInt(s.top_points,10)||0)):'—';
+  var m=parseInt(s.milestone,10)||0, wrap=$('tpd-milestone-wrap');
+  if(m>0){ var pct=Math.min(100,total/m*100); var lbl=$('tpd-milestone-label'); if(lbl)lbl.textContent='Meilenstein: '+fmtN(m)+' für nächstes Update ('+Math.round(pct)+'%)'; var bar=$('tpd-milestone-bar'); if(bar)bar.style.width=pct+'%'; if(wrap)wrap.style.display=''; }
+  else if(wrap)wrap.style.display='none';
+  var adm=$('tpd-admin'); if(adm)adm.style.display=(typeof lbAdminMode!=='undefined'&&lbAdminMode)?'':'none';
+  var inp=$('tpd-milestone-input'); if(inp&&document.activeElement!==inp)inp.value=m>0?m:'';
+}
+async function saveMilestone(){
+  var inp=$('tpd-milestone-input'); if(!inp)return;
+  var v=parseInt((inp.value||'').replace(/[^\d]/g,''),10)||0;
+  var btn=$('tpd-save-btn'); if(btn){btn.disabled=true;btn.textContent='…';}
+  try{ await sbFetch('wels_config?key=eq.milestone','PATCH',{value:String(v)}); }catch(e){}
+  if(btn){btn.disabled=false;btn.textContent='Setzen';}
+  await loadTotalPoints(); renderTotalPointsModal();
+  try{tone(660,'sine',.1,.08);}catch(e){}
 }
 function animateTotalPoints(el,from,to){
   if(from===to){el.textContent=fmtN(to);return;}

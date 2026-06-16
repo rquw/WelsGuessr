@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=19">
+<link rel="stylesheet" href="styles.css?v=20">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -128,13 +128,39 @@
       </div>
       <button class="start-icon-btn" data-label="Was ist neu?" onclick="openChangelog()" aria-label="Was ist neu?">📰</button>
     </div>
-    <div id="total-points-wrap">
+    <div id="total-points-wrap" onclick="openTotalPointsDetails()" title="Details anzeigen">
       <div id="total-points-num">—</div>
       <div id="total-points-label">Gesamtpunkte</div>
+      <div id="total-points-milestone" style="display:none"></div>
     </div>
   </div>
   <div class="footer-made">Website mit Liebe von Fabio erstellt.</div>
   <button id="auth-btn" class="logged-out" onclick="handleAuthBtn()">Anmelden</button>
+</div>
+
+<!-- GESAMTPUNKTE DETAILS -->
+<div class="modal-bg" id="total-points-modal">
+  <div class="modal">
+    <h2>Gesamtpunkte</h2>
+    <div class="tpd-grid">
+      <div class="tpd-stat"><div class="tpd-num" id="tpd-total">—</div><div class="tpd-lbl">Insgesamt</div></div>
+      <div class="tpd-stat"><div class="tpd-num" id="tpd-today">—</div><div class="tpd-lbl">Heute</div></div>
+    </div>
+    <div class="tpd-top-row">🏆 Top-Beitrag: <span id="tpd-top">—</span></div>
+    <div id="tpd-milestone-wrap" style="display:none">
+      <div class="tpd-milestone-label" id="tpd-milestone-label"></div>
+      <div class="tpd-milestone-track"><div class="tpd-milestone-bar" id="tpd-milestone-bar"></div></div>
+    </div>
+    <div id="tpd-admin" style="display:none">
+      <div class="tpd-admin-title">Admin: Meilenstein setzen</div>
+      <div class="modal-row" style="gap:.5rem">
+        <input class="modal-input" id="tpd-milestone-input" type="number" min="0" placeholder="z.B. 3000000" style="flex:1">
+        <button class="big-btn" id="tpd-save-btn" onclick="saveMilestone()">Setzen</button>
+      </div>
+      <div class="tpd-admin-hint">0 = kein Meilenstein</div>
+    </div>
+    <button class="big-btn" style="margin-top:.7rem" onclick="closeModal('total-points-modal')">Schließen</button>
+  </div>
 </div>
 
 <!-- INFO SCREEN -->
@@ -638,9 +664,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=27"></script>
+<script src="script.js?v=28"></script>
 <script src="patches.js?v=12"></script>
-<script src="nav.js?v=8"></script>
+<script src="nav.js?v=9"></script>
 <script src="profile.js?v=6"></script><!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">
   <div class="modal changelog-modal-inner" id="changelog-modal-inner">
