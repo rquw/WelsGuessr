@@ -362,13 +362,36 @@
 
     var oldYaw = (typeof S !== 'undefined') ? S.panoAngle : 0;
     var targetYaw = oldYaw + angleDiff(oldYaw, arrow.bearing); // auf Fahrtrichtung drehen
+    var cont = $id('pano-container');
 
-    preload(target.id).then(function () {
+    function swap() {
       buildStrip(target.id);
       if (typeof S !== 'undefined') { S.panoZoom = 1; S.panoVOff = 0; S.panoAngle = targetYaw; }
       if (typeof updatePanoZoom === 'function') updatePanoZoom();
       if (typeof updatePano === 'function') updatePano();
       finishDrive(target);
+    }
+
+    preload(target.id).then(function () {
+      // „Fahr"-Effekt: kurz nach vorne ins Bild zoomen, dann wechseln und sanft zurück (wie Google Earth)
+      if (cont) {
+        cont.style.transformOrigin = '50% 56%';
+        cont.style.transition = 'transform .30s cubic-bezier(.4,0,.65,1), filter .30s';
+        cont.style.transform = 'scale(1.42)';
+        cont.style.filter = 'brightness(1.05)';
+        setTimeout(function () {
+          swap();
+          cont.style.transition = 'none';
+          cont.style.transform = 'scale(1.16)';
+          void cont.offsetWidth;                  // Reflow erzwingen
+          cont.style.transition = 'transform .26s ease-out, filter .26s';
+          cont.style.transform = 'scale(1)';
+          cont.style.filter = '';
+          setTimeout(function () { cont.style.transition = ''; cont.style.transformOrigin = ''; }, 300);
+        }, 300);
+      } else {
+        swap();
+      }
     });
   }
 
@@ -376,6 +399,12 @@
     NAV.viewId = target.id;
     NAV.arrows = computeNeighbors(target);
     renderArrows();
+    // FIX: Pfeile positionieren, sobald der neue Strip Maße hat (sonst erst nach „Umsehen" klickbar)
+    var t = 0;
+    (function waitPos() {
+      if (imageWidth() > 0) { positionArrows(); return; }
+      if (t++ < 40) setTimeout(waitPos, 50);
+    })();
     NAV.locked = false;
     var ov = $id('nav-arrows'); if (ov) ov.classList.remove('nav-locked');
     updateReturnBtn();

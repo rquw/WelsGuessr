@@ -4,13 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WelsGuessr</title>
-<!-- SPA-Deep-Link: stellt /?/spielen (von 404.html) zurück auf /spielen, bevor die App lädt -->
-<script>(function(l){if(l.search[1]==='/'){var d=l.search.slice(1).split('&').map(function(s){return s.replace(/~and~/g,'&');}).join('?');window.history.replaceState(null,null,l.pathname.slice(0,-1)+d+l.hash);}}(window.location));</script>
 <script>document.title='WelsGuessr';</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=18">
+<link rel="stylesheet" href="styles.css?v=19">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -129,6 +127,10 @@
         </div>
       </div>
       <button class="start-icon-btn" data-label="Was ist neu?" onclick="openChangelog()" aria-label="Was ist neu?">📰</button>
+    </div>
+    <div id="total-points-wrap">
+      <div id="total-points-num">—</div>
+      <div id="total-points-label">Gesamtpunkte</div>
     </div>
   </div>
   <div class="footer-made">Website mit Liebe von Fabio erstellt.</div>
@@ -437,7 +439,6 @@
     </div>
     <div class="pano-hint" id="drag-hint">ziehen oder seitwärts wischen zum Umsehen · scrollen/pinchen zum Zoomen</div>
     <div id="compass" title="Blickrichtung"><span class="compass-needle">▲</span><span id="compass-dir">N</span></div>
-    <button id="vol-btn" onclick="cycleVolume()">🔊 <span id="vol-label">100%</span></button>
   </div>
   <div id="map-panel">
     <div id="map-el"></div>
@@ -637,12 +638,10 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=26"></script>
+<script src="script.js?v=27"></script>
 <script src="patches.js?v=12"></script>
-<script src="nav.js?v=7"></script>
-<script src="profile.js?v=5"></script>
-<script src="router.js?v=1"></script>
-<!-- CHANGELOG MODAL -->
+<script src="nav.js?v=8"></script>
+<script src="profile.js?v=6"></script><!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">
   <div class="modal changelog-modal-inner" id="changelog-modal-inner">
     <div class="changelog-header">

@@ -108,6 +108,10 @@
       '@keyframes pfPop{from{transform:translate(-50%,-50%) scale(.7);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}',
       '#pf-firstprompt{position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);z-index:3500;display:flex;align-items:center;gap:.6rem;background:rgba(14,24,16,.96);border:1px solid rgba(201,168,76,.4);border-radius:14px;padding:.6rem .9rem;box-shadow:0 10px 34px rgba(0,0,0,.45);color:var(--cream,#f5efe0)}',
       '.profile-avatar{cursor:pointer}',
+      '#pf-sheet{display:none;position:fixed;inset:0;z-index:4250;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:1rem}',
+      '#pf-sheet.show{display:flex}',
+      '.pf-sheet-box{display:flex;flex-direction:column;gap:.55rem;background:#0e1810;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:1.2rem;width:min(92vw,320px)}',
+      '.pf-sheet-title{font-family:"Playfair Display",serif;font-size:1.2rem;color:var(--cream,#f5efe0);text-align:center;margin-bottom:.2rem}',
       '.pf-acctnum{font-size:.66rem;color:var(--mist,#8fa89a);letter-spacing:.05em;margin-top:.15rem}',
       '#profile-screen .profile-header.pf-has-banner{background-size:cover;background-position:center;position:relative;border-radius:16px;padding:1rem;overflow:hidden}',
       '#profile-screen .profile-header.pf-has-banner::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,14,9,.3),rgba(8,14,9,.78));z-index:0}',
@@ -366,15 +370,32 @@
     showAccountNumber(meta.account_number);
     if(meta.account_number&&window.routeProfileNum) routeProfileNum(meta.account_number);
     var own = loggedIn() && name.toLowerCase()===myName().toLowerCase();
-    var info=document.querySelector('#profile-screen .profile-header-info')||document.querySelector('#profile-screen .profile-header');
-    // alte Einzel-Buttons entfernen → ein einziger Button „Profil bearbeiten"
-    ['pf-cam-btn','pf-clear-btn','pf-cust-btn'].forEach(function(id){var b=$id(id);if(b)b.remove();});
-    var edit=$id('pf-edit-btn');
-    if(own){
-      if(!edit&&info){ edit=document.createElement('button'); edit.id='pf-edit-btn'; edit.className='pf-cam-btn'; info.appendChild(edit); }
-      if(edit){ edit.textContent='✏️ Profil bearbeiten'; edit.style.display=''; edit.onclick=function(){pfOpenCamera();}; }
-    } else if(edit){ edit.style.display='none'; }
+    // KEIN zweiter Button mehr — den vorhandenen „Profil bearbeiten" (#profile-self-edit-btn) übernehmen,
+    // er öffnet jetzt ein kleines Menü (Foto / Name / entfernen). Eventuelle alte Eigen-Buttons entfernen.
+    ['pf-cam-btn','pf-clear-btn','pf-cust-btn','pf-edit-btn'].forEach(function(id){var b=$id(id);if(b)b.remove();});
+    var seb=$id('profile-self-edit-btn');
+    if(seb){ seb.style.display = own ? '' : 'none'; if(own) seb.onclick=function(){ pfOpenEditSheet(name); }; }
   }
+  // kleines Menü hinter „Profil bearbeiten"
+  window.pfOpenEditSheet=function(name){
+    injectCSS();
+    var has=!!cacheGet(myName());
+    var d=$id('pf-sheet');
+    if(!d){ d=document.createElement('div'); d.id='pf-sheet'; document.body.appendChild(d); d.addEventListener('click',function(e){ if(e.target===d)d.classList.remove('show'); }); }
+    d.innerHTML='<div class="pf-sheet-box">'+
+      '<div class="pf-sheet-title">Profil bearbeiten</div>'+
+      '<button class="pf-btn primary" id="pf-sheet-photo">'+(has?'📸 Profilbild ändern':'📸 Profilbild aufnehmen')+'</button>'+
+      (has?'<button class="pf-btn" id="pf-sheet-remove">🗑 Bild entfernen</button>':'')+
+      '<button class="pf-btn" id="pf-sheet-name">✏️ Name ändern</button>'+
+      '<button class="pf-btn" id="pf-sheet-cancel">Abbrechen</button>'+
+    '</div>';
+    function close(){ d.classList.remove('show'); }
+    $id('pf-sheet-photo').onclick=function(){ close(); pfOpenCamera(); };
+    if($id('pf-sheet-remove'))$id('pf-sheet-remove').onclick=function(){ close(); pfClearAvatar(); };
+    $id('pf-sheet-name').onclick=function(){ close(); if(typeof openAdminEditPlayer==='function')openAdminEditPlayer(name); };
+    $id('pf-sheet-cancel').onclick=close;
+    d.classList.add('show');
+  };
   // openProfile umhüllen (in patches.js definiert)
   function wrapOpenProfile(){
     if(typeof window.openProfile!=='function'){ setTimeout(wrapOpenProfile,300); return; }
@@ -387,13 +408,14 @@
   // Erst-Besuch: kein Profilbild → einmal anbieten (abbrechbar)
   async function maybePromptFirstVisit(){
     if(!loggedIn()) return;
-    try{ if(localStorage.getItem('pg_pfp_prompted')) return; }catch(e){}
+    var dec=0; try{ dec=parseInt(localStorage.getItem('pg_pfp_declined')||'0',10)||0; }catch(e){}
+    if(dec>=2) return;                 // zweimal abgelehnt → nie wieder fragen
     var url=await fetchAvatar(myName());
-    if(url) return; // hat schon eins
-    try{ localStorage.setItem('pg_pfp_prompted','1'); }catch(e){}
+    if(url) return;                    // hat schon ein Bild
     injectCSS();
-    showFirstPrompt(); // nicht-blockierender Banner
+    showFirstPrompt();                 // bei jedem Reload, bis 2× abgelehnt
   }
+  window.pfPromptForPhoto=function(){ injectCSS(); showFirstPrompt(); };   // z.B. direkt nach Account-Erstellung
   function showFirstPrompt(){
     if($id('pf-firstscreen')) return;
     var d=document.createElement('div'); d.id='pf-firstscreen';
@@ -406,7 +428,7 @@
       '</div>';
     document.body.appendChild(d); d.classList.add('show');
     $id('pf-fs-yes').onclick=function(){ d.remove(); pfOpenCamera(); };
-    $id('pf-fs-no').onclick=function(){ d.remove(); };
+    $id('pf-fs-no').onclick=function(){ try{var n=parseInt(localStorage.getItem('pg_pfp_declined')||'0',10)||0;localStorage.setItem('pg_pfp_declined',String(n+1));}catch(e){} d.remove(); };
   }
 
   // ── Boot ──

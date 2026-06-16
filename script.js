@@ -59,7 +59,7 @@ function cycleVolume() {
   volIdx = (volIdx+1)%VOL_STEPS.length;
   VOL = VOL_STEPS[volIdx];
   var labels = ['100%','50%','20%','🔇'];
-  $('vol-label').textContent = labels[volIdx];
+  var vl=$('vol-label'); if(vl)vl.textContent = labels[volIdx];
 }
 
 function tone(freq,type,dur,vol,det,delay) {
@@ -312,8 +312,13 @@ function updateSaveBtnVisibility(){
 function setBackdrop(imgSrc){
   var bd=$('screen-backdrop');
   if(!imgSrc){bd.classList.remove('show');bd.style.backgroundImage='';return;}
-  bd.style.backgroundImage='url('+imgSrc+')'; bd.classList.add('show');
+  // erst anzeigen, wenn das Bild geladen ist (kein Aufblitzen/Umschalten auf Leeres)
+  var _t=++setBackdrop._tok;
+  var im=new Image();
+  im.onload=function(){ if(_t!==setBackdrop._tok)return; bd.style.backgroundImage='url('+imgSrc+')'; bd.classList.add('show'); };
+  im.src=imgSrc;
 }
+setBackdrop._tok=0;
 // ── Bild-CDN (jsDelivr über GitHub-Repo, kostenlos, KEIN Bandbreitenlimit) ──
 // Panorama-Bilder liegen im separaten öffentlichen Repo IMG_REPO und werden über jsDelivr ausgeliefert.
 // (Avatare laufen weiterhin über Cloudinary – kleines Volumen.)
@@ -985,7 +990,7 @@ function loadRound(){
   var _og=$('vs-opponent-guessed');if(_og){_og.classList.remove('show');if(_og._t)clearTimeout(_og._t);}
   // difficulty badge sofort auf 'Unbestimmt' setzen, dann nachladen
   var diffBadgeEl=document.getElementById('top-bar-diff');
-  if(diffBadgeEl){diffBadgeEl.textContent='Schwierigkeit: Unbestimmt';diffBadgeEl.style.display='';}
+  if(diffBadgeEl){diffBadgeEl.textContent='';diffBadgeEl.style.display='none';}
   if(S.current&&typeof loadDifficultyBadge==='function') loadDifficultyBadge(S.current.id);
   var f=$('round-flash'); f.classList.remove('ember-flash');
   if(S.mode==='survival')f.classList.add('ember-flash');
@@ -1089,7 +1094,7 @@ function nextRound(){
   if(inlineRating){inlineRating.style.display='none';inlineRating.innerHTML='<div class="inline-diff-label">Wie schwer war der Spot?</div><div class="inline-diff-stars"><button class="diff-star" data-r="1" onclick="submitDifficultyRating(1)">&#9733;</button><button class="diff-star" data-r="2" onclick="submitDifficultyRating(2)">&#9733;</button><button class="diff-star" data-r="3" onclick="submitDifficultyRating(3)">&#9733;</button><button class="diff-star" data-r="4" onclick="submitDifficultyRating(4)">&#9733;</button><button class="diff-star" data-r="5" onclick="submitDifficultyRating(5)">&#9733;</button></div>';}
   // Difficulty-Badge bleibt sichtbar; loadRound() setzt ihn auf 'Unbestimmt' und lädt neu
   var diffBadge=document.getElementById('top-bar-diff');
-  if(diffBadge){diffBadge.textContent='Schwierigkeit: Unbestimmt';diffBadge.style.display='';}
+  if(diffBadge){diffBadge.textContent='';diffBadge.style.display='none';}
   if(S.mode==='survival'&&S.survivalEliminated){showSurvivalFail();return;}
   S.round++;
   if(S.round>=S.roundsTotal)showFinal();
@@ -1368,6 +1373,31 @@ function setLbSort(sort){
 }
 function openLeaderboard(){openModal('lb-modal');loadLeaderboardData();}
 
+// ── Gesamtpunkte-Zähler (Startseite, alle 10s) ──
+var _tpVal=0,_tpAnim=null;
+async function loadTotalPoints(){
+  var el=$('total-points-num'); if(!el)return;
+  try{
+    var res=await sbFetch('rpc/wels_total_points');
+    var total = (typeof res==='number') ? res
+      : Array.isArray(res) ? (typeof res[0]==='number'?res[0]:((res[0]&&(res[0].wels_total_points!=null?res[0].wels_total_points:res[0].sum))||0))
+      : (res&&res.sum)||0;
+    total=parseInt(total,10)||0;
+    animateTotalPoints(el,_tpVal,total); _tpVal=total;
+  }catch(e){}
+}
+function animateTotalPoints(el,from,to){
+  if(from===to){el.textContent=fmtN(to);return;}
+  if(_tpAnim)cancelAnimationFrame(_tpAnim);
+  var dur=900,t0=performance.now();
+  function step(now){
+    var p=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-p,3);
+    el.textContent=fmtN(Math.round(from+(to-from)*e));
+    if(p<1)_tpAnim=requestAnimationFrame(step);
+  }
+  _tpAnim=requestAnimationFrame(step);
+}
+
 var lbExpandedNames={},lbSubSort={};
 
 async function loadLeaderboardData(){
@@ -1387,14 +1417,15 @@ async function loadLeaderboardData(){
       if(!playerBest[key]){playerBest[key]=r;playerAll[key]=[];}
       playerAll[key].push(r);if(r.score>playerBest[key].score)playerBest[key]=r;
     });
-    // Fetch real names (vorname/nachname) for all players
-    var playerRealNames={};
+    // Fetch real names + Avatare for all players
+    var playerRealNames={},playerAvatars={};
     try{
       var uniqueNames=Object.keys(playerBest).map(function(k){return playerBest[k].name;});
       var nameList=uniqueNames.map(function(n){return '"'+n+'"';}).join(',');
-      var playerInfoRows=await sbFetch('players?select=name,vorname,nachname&name=in.('+nameList+')');
+      var playerInfoRows=await sbFetch('players?select=name,vorname,nachname,avatar_url&name=in.('+nameList+')');
       if(playerInfoRows)playerInfoRows.forEach(function(p){
         if(p.vorname)playerRealNames[p.name.toLowerCase()]=p.vorname+(p.nachname?' '+p.nachname:'');
+        if(p.avatar_url)playerAvatars[p.name.toLowerCase()]=p.avatar_url;
       });
     }catch(e){}
     var players=Object.keys(playerBest).map(function(k){return playerBest[k];});
@@ -1412,7 +1443,9 @@ async function loadLeaderboardData(){
       var nameAttr=realName?' data-realname="'+escHtml(realName)+'"':'';
       var rowEl=document.createElement('div');rowEl.className='lb-row';
       var profBtn='<button class="lb-profile-btn" onclick="event.stopPropagation();openProfile(\''+escHtml(r.name)+'\')">👤</button>';
-      rowEl.innerHTML=rankLabel+'<span class="lb-name"'+nameAttr+'>'+escHtml(r.name)+multiHint+'</span><span class="lb-score">'+fmtN(r.score)+'</span><span class="lb-date" data-time="'+timeStr+'">'+date+'</span>'+profBtn;
+      var _av=playerAvatars[nameKey];
+      var avHtml='<span class="lb-avatar'+(_av?' has':'')+'"'+(_av?' style="background-image:url(\''+_av+'\')"':'')+'>'+(_av?'':escHtml(r.name.charAt(0).toUpperCase()))+'</span>';
+      rowEl.innerHTML=rankLabel+avHtml+'<span class="lb-name"'+nameAttr+'>'+escHtml(r.name)+multiHint+'</span><span class="lb-score">'+fmtN(r.score)+'</span><span class="lb-date" data-time="'+timeStr+'">'+date+'</span>'+profBtn;
       if(realName){
         (function(nameEl,spitz,hint,full){
           if(IS_TOUCH){
@@ -1624,6 +1657,7 @@ async function submitLogin(){
         else{$('login-error').textContent='Name vergeben.';$('login-submit-btn').disabled=false;return;}
       } else {
         await sbFetch('players','POST',{name:name,pw_hash:inputHash,vorname:vorname,nachname:nachname||null});saveSession(name,inputHash);refreshAuthUI();
+        if(window.pfPromptForPhoto)setTimeout(pfPromptForPhoto,700);   // neues Konto → Profilbild anbieten
       }
     } else {
       if(!existing||!existing.length){$('login-error').textContent='Account nicht gefunden.';$('login-submit-btn').disabled=false;return;}
@@ -1730,6 +1764,7 @@ async function submitScore(){
     if(saveMode==='new'){
       if(existing&&existing.length){$('save-error').textContent='Dieser Name ist bereits vergeben.';$('save-submit-btn').disabled=false;return;}
       await sbFetch('players','POST',{name:name,pw_hash:inputHash});saveSession(name,inputHash);refreshAuthUI();
+      if(window.pfPromptForPhoto)setTimeout(pfPromptForPhoto,700);   // neues Konto → Profilbild anbieten
     } else {
       if(!existing||!existing.length){await sbFetch('players','POST',{name:name,pw_hash:inputHash});saveSession(name,inputHash);refreshAuthUI();}
       else{if(existing[0].pw_hash!==inputHash){$('save-error').textContent='Falsches Passwort.';$('save-submit-btn').disabled=false;return;}saveSession(existing[0].name,inputHash);refreshAuthUI();name=existing[0].name;}
@@ -1797,6 +1832,8 @@ async function loadDailyBoard(){
     var rows=await sbFetch('wels_daily_scores?date_key=eq.'+getViennaDateKey()+'&select=name,score,created_at&order=score.desc&limit=50');
     boardEl.innerHTML='';
     if(!rows||!rows.length){boardEl.innerHTML='<div style="font-size:.72rem;color:var(--mist);text-align:center;padding:1.2rem">Heute noch keine Einträge.</div>';return;}
+    var dav={};
+    try{ var dnl=rows.map(function(r){return '"'+r.name+'"';}).join(','); var dprows=await sbFetch('players?select=name,avatar_url&name=in.('+dnl+')'); if(dprows)dprows.forEach(function(p){if(p.avatar_url)dav[p.name.toLowerCase()]=p.avatar_url;}); }catch(e){}
     var medals=['🥇','🥈','🥉'];
     rows.forEach(function(r,i){
       try{
@@ -1805,7 +1842,9 @@ async function loadDailyBoard(){
         var d=r.created_at?new Date(r.created_at):null;
         var valid=d&&!isNaN(d.getTime());
         var date=valid?fmtDate(d):'—', time=valid?d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'}):'';
-        div.innerHTML=rank+'<span class="lb-name">'+escHtml(r.name||'—')+'</span><span class="lb-score">'+fmtN(r.score||0)+'</span><span class="lb-date" data-time="'+time+'">'+date+'</span>';
+        var _da=dav[(r.name||'').toLowerCase()];
+        var daHtml='<span class="lb-avatar'+(_da?' has':'')+'"'+(_da?' style="background-image:url(\''+_da+'\')"':'')+'>'+(_da?'':escHtml((r.name||'?').charAt(0).toUpperCase()))+'</span>';
+        div.innerHTML=rank+daHtml+'<span class="lb-name">'+escHtml(r.name||'—')+'</span><span class="lb-score">'+fmtN(r.score||0)+'</span><span class="lb-date" data-time="'+time+'">'+date+'</span>';
         boardEl.appendChild(div);setTimeout(function(el){return function(){el.classList.add('in');};}(div),i*45);
       }catch(rowErr){console.error('[daily-board row]',rowErr);}
     });
@@ -2585,10 +2624,25 @@ function showMpStandings(sorted,placement){
     var you=p.player_id===S.playerId;
     return '<div class="mp-standings-row'+(you?' me':'')+(i===0?' first':'')+'">'+
       '<span class="mp-standings-rank">'+(medals[i]||(i+1)+'.')+'</span>'+
+      '<span class="lb-avatar mp-av" data-name="'+escHtml((p.name||'').toLowerCase())+'">'+escHtml((p.name||'?').charAt(0).toUpperCase())+'</span>'+
       '<span class="mp-standings-name">'+escHtml(p.name)+(you?' (Du)':'')+'</span>'+
       '<span class="mp-standings-total">'+fmtN(p._total)+'</span></div>';
   }).join('');
   el.innerHTML=head+'<div class="mp-standings-list">'+listHtml+'</div>'+(sorted.length>5?'<div class="mp-scrollhint">↓ scrollen für alle '+sorted.length+' Spieler</div>':'');
+  mpFillAvatars(el,sorted.map(function(p){return p.name;}));
+}
+// Avatare in MP-Listen nachladen (room_players haben keinen avatar_url)
+function mpFillAvatars(container,names){
+  try{
+    var nl=names.filter(Boolean).map(function(n){return '"'+n+'"';}).join(',');
+    if(!nl||!container)return;
+    sbFetch('players?select=name,avatar_url&name=in.('+nl+')').then(function(rows){
+      var m={};(rows||[]).forEach(function(p){if(p.avatar_url)m[p.name.toLowerCase()]=p.avatar_url;});
+      Array.prototype.forEach.call(container.querySelectorAll('.mp-av'),function(av){
+        var u=m[av.getAttribute('data-name')];if(u){av.style.backgroundImage="url('"+u+"')";av.classList.add('has');}
+      });
+    }).catch(function(){});
+  }catch(e){}
 }
 
 // Weiter-Button / Space: Solo etc. → nächste Runde; Mehrspieler rückt automatisch vor (kein manuelles Voten)
@@ -2651,6 +2705,7 @@ function goHomeFromGame(){
 }
 
 function shouldWarnOnLeave(){
+  if(S.mode==='solo'&&!S.isVs)return false;   // normales Einzelspiel: keine Warnung, einfach gehen lassen
   if($('start-screen').classList.contains('active'))return false;if($('play-menu-screen').classList.contains('active'))return false;
   if($('daily-screen').classList.contains('active'))return false;if($('final-screen').classList.contains('active'))return false;
   if($('game-screen').classList.contains('active'))return true;if($('result-screen').classList.contains('active')&&S.round<S.roundsTotal)return true;
@@ -2682,6 +2737,7 @@ window.addEventListener('load',function(){
   setTimeout(function(){$('start-main').classList.add('in');},300);
   setTimeout(function(){renderStreakDisplay('streak-display-start');},400);
   setDailyInfo();getOrCreateDeviceId();refreshAuthUI();checkDeepLink();cleanupStaleRooms();loadDailyBoard();loadDailyChampions();updateDailyPlayAvailability();startDailyTimers();
+  loadTotalPoints(); setInterval(loadTotalPoints,10000);
   setTimeout(checkNamePromptNeeded,1500);
 });
 
@@ -2901,16 +2957,15 @@ async function loadDifficultyBadge(locId){
   _diffCurrentLocId=locId;
   var el=document.getElementById('top-bar-diff');
   if(!el)return;
-  el.textContent='Schwierigkeit: Unbestimmt';
-  el.style.display='';
+  el.textContent=''; el.style.display='none';   // unbestimmt → Label ausblenden, bis echte Bewertung da ist
   try{
     var rows=await sbFetch('location_ratings?location_id=eq.'+encodeURIComponent(locId)+'&select=rating');
-    if(!rows||!rows.length){el.textContent='Schwierigkeit: Unbestimmt';el.style.display='';return;}
+    if(!rows||!rows.length){el.style.display='none';return;}
     var avg=rows.reduce(function(a,r){return a+r.rating;},0)/rows.length;
     var labels=['','Sehr einfach','Einfach','Normal','Schwer','Sehr schwer'];
-    el.style.display='';
     el.textContent='Schwierigkeit: '+(labels[Math.round(avg)]||'Normal');
-  }catch(e){el.textContent='Schwierigkeit: Unbestimmt';el.style.display='';}
+    el.style.display='';
+  }catch(e){el.style.display='none';}
 }
 
 async function loadAndShowDifficultyDisplay(locId){
