@@ -1343,3 +1343,18 @@ body::before{
 #tpd-admin{margin-top:.8rem;border-top:1px solid rgba(255,255,255,.1);padding-top:.7rem}
 .tpd-admin-title{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
 .tpd-admin-hint{font-size:.58rem;color:var(--mist);margin-top:.3rem}
+
+/* ── Level / XP / Erfolg-Fortschritt / Avatar-Rahmen ── */
+.lvl-badge{background:rgba(201,168,76,.18);border:1px solid rgba(201,168,76,.5);color:var(--gold)}
+#profile-xp{width:100%;max-width:280px;margin-top:.5rem}
+.xp-track{height:.5rem;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden}
+.xp-bar{height:100%;background:linear-gradient(90deg,#d6ad48,#f3d889);transition:width .5s ease}
+.xp-lbl{font-size:.55rem;color:var(--mist);margin-top:.2rem;letter-spacing:.04em}
+.ach-prog{height:.4rem;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:.3rem}
+.ach-prog-bar{height:100%;background:var(--gold);opacity:.7}
+.ach-prog-lbl{font-size:.52rem;color:var(--mist);margin-top:.15rem;letter-spacing:.04em}
+.profile-avatar.pf-frame-bronze{box-shadow:0 0 0 3px #b08d57}
+.profile-avatar.pf-frame-silver{box-shadow:0 0 0 3px #cfd4da}
+.profile-avatar.pf-frame-gold{box-shadow:0 0 0 3px var(--gold)}
+.profile-avatar.pf-frame-rainbow{animation:pgRainbow 4s linear infinite}
+@keyframes pgRainbow{0%,100%{box-shadow:0 0 0 3px #e23b3b}25%{box-shadow:0 0 0 3px #f3d24b}50%{box-shadow:0 0 0 3px #4bbf6b}75%{box-shadow:0 0 0 3px #4aa3f0}}

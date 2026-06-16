@@ -37,3 +37,14 @@ as $$
   )
 $$;
 grant execute on function public.wels_points_stats() to anon, authenticated;
+
+-- 3) Gesamt-XP eines Spielers (für Level), Summe ALLER Spiele (nicht nur 100)
+create or replace function public.wels_player_xp(p_name text)
+returns bigint
+language sql
+stable
+security definer
+as $$
+  select coalesce(sum(score), 0)::bigint from public.wels_scores where name ilike p_name
+$$;
+grant execute on function public.wels_player_xp(text) to anon, authenticated;

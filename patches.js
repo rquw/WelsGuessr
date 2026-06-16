@@ -272,13 +272,32 @@ document.addEventListener('DOMContentLoaded', function() {
         'achievements?player_name=ilike.' + encodeURIComponent(name) + '&select=achievement_key'
       );
       var haveKeys = new Set((achRows || []).map(function(r) { return r.achievement_key; }));
+      // Fortschritt für zählbare Erfolge (nur auf gesperrten anzeigen)
+      var _achStats = {
+        dailies: dailyRows ? dailyRows.length : 0,
+        streak:  (playerRow && playerRow[0] && playerRow[0].streak_count) || 0,
+        best:    best,
+        games:   games
+      };
+      var _achTargets = {
+        daily_1:['dailies',1], daily_5:['dailies',5], daily_10:['dailies',10], daily_30:['dailies',30],
+        streak_2:['streak',2], streak_3:['streak',3], streak_7:['streak',7], streak_14:['streak',14], streak_30:['streak',30],
+        score_5k:['best',5000], score_10k:['best',10000], score_15k:['best',15000], score_20k:['best',20000], score_25k:['best',25000],
+        first_game:['games',1]
+      };
       var achHtml = ACHIEVEMENTS.map(function(a) {
         var on = haveKeys.has(a.key);
+        var prog = '';
+        if (!on && _achTargets[a.key]) {
+          var tg = _achTargets[a.key], cur = Math.max(0, Math.min(tg[1], _achStats[tg[0]] || 0));
+          prog = '<div class="ach-prog"><div class="ach-prog-bar" style="width:' + Math.round(cur / tg[1] * 100) + '%"></div></div>' +
+                 '<div class="ach-prog-lbl">' + fmtN(cur) + ' / ' + fmtN(tg[1]) + '</div>';
+        }
         return '<div class="ach-item' + (on ? '' : ' ach-locked') + '">' +
           '<span class="ach-icon">' + a.icon + '</span>' +
           '<div class="ach-info">' +
             '<div class="ach-title">' + a.title + '</div>' +
-            '<div class="ach-desc">'  + a.desc  + '</div>' +
+            '<div class="ach-desc">'  + a.desc  + '</div>' + prog +
           '</div>' +
           (on ? '<span class="ach-check">✓</span>' : '') +
           '</div>';
@@ -291,6 +310,26 @@ document.addEventListener('DOMContentLoaded', function() {
       var total = (scores || []).reduce(function(a, r) { return a + (r.score || 0); }, 0);
       el = document.getElementById('ps-total'); if (el) el.textContent = fmtN(total);
       el = document.getElementById('ps-ach');   if (el) el.textContent = haveKeys.size + '/' + ACHIEVEMENTS.length;
+
+      // Level / XP (echte Gesamt-XP, nicht nur 100 Spiele) + Avatar-Rahmen
+      try {
+        var xp = await sbFetch('rpc/wels_player_xp?p_name=' + encodeURIComponent(name));
+        if (Array.isArray(xp)) xp = xp[0];
+        xp = parseInt((xp && xp.wels_player_xp != null ? xp.wels_player_xp : xp), 10);
+        if (!(xp >= 0)) xp = total;
+        if (typeof pgLevel === 'function') {
+          var lv = pgLevel(xp), minx = pgLevelMinXp(lv), nextx = pgLevelMinXp(lv + 1);
+          var pct = Math.max(0, Math.min(100, Math.round((xp - minx) / (nextx - minx) * 100)));
+          var badges2 = document.getElementById('profile-badges');
+          if (badges2) { var lvb = document.createElement('span'); lvb.className = 'profile-badge lvl-badge'; lvb.textContent = '⭐ Level ' + lv; badges2.insertBefore(lvb, badges2.firstChild); }
+          var info2 = document.querySelector('#profile-screen .profile-header-info') || document.querySelector('#profile-screen .profile-header');
+          var xpEl = document.getElementById('profile-xp');
+          if (!xpEl && info2) { xpEl = document.createElement('div'); xpEl.id = 'profile-xp'; info2.appendChild(xpEl); }
+          if (xpEl) xpEl.innerHTML = '<div class="xp-track"><div class="xp-bar" style="width:' + pct + '%"></div></div><div class="xp-lbl">' + fmtN(xp - minx) + ' / ' + fmtN(nextx - minx) + ' XP bis Level ' + (lv + 1) + '</div>';
+          var av2 = document.getElementById('profile-avatar');
+          if (av2) { av2.classList.remove('pf-frame-bronze','pf-frame-silver','pf-frame-gold','pf-frame-rainbow'); var tier = pgFrameTier(lv); if (tier) av2.classList.add('pf-frame-' + tier); }
+        }
+      } catch(_) {}
 
       // Bestenlisten-Rang (bester Score je Spieler)
       var rank = null;

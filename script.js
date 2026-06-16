@@ -1410,6 +1410,11 @@ function renderTotalPointsModal(){
   var adm=$('tpd-admin'); if(adm)adm.style.display=(typeof lbAdminMode!=='undefined'&&lbAdminMode)?'':'none';
   var inp=$('tpd-milestone-input'); if(inp&&document.activeElement!==inp)inp.value=m>0?m:'';
 }
+// ── Level / XP (XP = gesamte je erspielte Punkte eines Spielers) ──
+function pgLevel(xp){ xp=Math.max(0,parseInt(xp,10)||0); return Math.floor(Math.sqrt(xp/5000)); }
+function pgLevelMinXp(l){ return l*l*5000; }
+function pgFrameTier(level){ return level>=20?'rainbow':level>=12?'gold':level>=7?'silver':level>=3?'bronze':''; }
+
 async function saveMilestone(){
   var inp=$('tpd-milestone-input'); if(!inp)return;
   var v=parseInt((inp.value||'').replace(/[^\d]/g,''),10)||0;
