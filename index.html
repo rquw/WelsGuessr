@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="styles.css?v=22">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -239,15 +239,15 @@
         <button class="menu-card-cta" onclick="openVsModal();event.stopPropagation()">Spielen →</button>
       </div>
     </div>
-    <div class="menu-card survival-card" onclick="startSurvival()">
+    <div class="menu-card survival-card" id="rotation-card" onclick="startRotationMode()">
       <div class="menu-card-bg" id="survival-card-bg"></div>
       <div class="menu-card-left">
-        <div id="survival-neu-badge" class="survival-badge">Neu</div>
-        <div class="menu-card-title">Hitzewelle</div>
-        <div class="menu-card-sub">12 Runden, steigende Schwellen.<br>Bleib über dem Limit, sonst bist du raus.</div>
+        <div id="survival-neu-badge" class="survival-badge">Täglich</div>
+        <div class="menu-card-title" id="rotation-card-title">Hitzewelle</div>
+        <div class="menu-card-sub" id="rotation-card-sub">12 Runden, steigende Schwellen.<br>Bleib über dem Limit, sonst bist du raus.</div>
       </div>
       <div class="menu-card-right">
-        <button class="menu-card-cta ember" onclick="startSurvival();event.stopPropagation()">Durchhalten →</button>
+        <button class="menu-card-cta ember" id="rotation-card-cta" onclick="startRotationMode();event.stopPropagation()">Durchhalten →</button>
       </div>
     </div>
   </div>
@@ -664,7 +664,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=29"></script>
+<script src="script.js?v=30"></script>
 <script src="patches.js?v=13"></script>
 <script src="nav.js?v=9"></script>
 <script src="profile.js?v=6"></script><!-- CHANGELOG MODAL -->

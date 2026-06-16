@@ -1358,3 +1358,7 @@ body::before{
 .profile-avatar.pf-frame-gold{box-shadow:0 0 0 3px var(--gold)}
 .profile-avatar.pf-frame-rainbow{animation:pgRainbow 4s linear infinite}
 @keyframes pgRainbow{0%,100%{box-shadow:0 0 0 3px #e23b3b}25%{box-shadow:0 0 0 3px #f3d24b}50%{box-shadow:0 0 0 3px #4bbf6b}75%{box-shadow:0 0 0 3px #4aa3f0}}
+
+/* ── Blitz-Tag (Rotation) ── */
+.blitz-card .menu-card-cta{background:linear-gradient(180deg,#f3d889,#d6ad48);color:#231a04;border-color:transparent}
+.blitz-card .survival-badge{background:#4aa3f0;color:#fff}

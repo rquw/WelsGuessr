@@ -497,7 +497,7 @@ function setDailyInfo(){
 
 // ── Navigation ──
 function openInfoScreen(){show('info-screen');}
-function openPlayMenu(){show('play-menu-screen');setMenuCardBackdrops();startDailyTimers();}
+function openPlayMenu(){show('play-menu-screen');setMenuCardBackdrops();startDailyTimers();if(typeof applyDailyRotation==='function')applyDailyRotation();}
 function goToStart(){show('start-screen');renderStreakDisplay('streak-display-start');}
 var _logoClicks=0,_logoClickLast=0,_logoEggRunning=false;
 function triggerLogoAnim(){
@@ -810,6 +810,41 @@ function startSurvival(){
   showSurvivalExplain();
 }
 
+// ── Blitz: so viele Runden wie möglich in 60 Sekunden ──
+var BLITZ_SECONDS=60;
+function startBlitz(){
+  resetScoreSavedUI(); resumeAC(); if(sfx.start)sfx.start(); S.mode='blitz'; S.roundsTotal=999;
+  var hb=$('back-to-home-btn'); if(hb)hb.style.display='block';
+  resetBaseState(); S.isVs=false; S._blitzOver=false;
+  if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}
+  S.locations=shuffle(LOCATIONS.slice()).slice(0,S.roundsTotal);
+  $('vs-badge').style.display='none'; $('vs-strip').style.display='none'; var rt=$('round-total'); if(rt)rt.textContent='∞';
+  S.blitzEndAt=Date.now()+BLITZ_SECONDS*1000;
+  startBlitzClock();
+  show('game-screen'); initPanoDrag(); loadRound();
+}
+function startBlitzClock(){
+  if(S._blitzClock)clearInterval(S._blitzClock);
+  var tEl=$('mp-timer'); if(tEl)tEl.style.display='block';
+  S._blitzClock=setInterval(function(){
+    var left=Math.ceil((S.blitzEndAt-Date.now())/1000);
+    var e=$('mp-timer'); if(e){e.textContent='⏱ '+Math.max(0,left)+'s'; e.classList.toggle('mp-timer-urgent',left<=5&&left>0);}
+    if(left<=0)blitzEnd();
+  },200);
+}
+function stopBlitzClock(){ if(S._blitzClock){clearInterval(S._blitzClock);S._blitzClock=null;} var e=$('mp-timer'); if(e){e.style.display='none';e.classList.remove('mp-timer-urgent');} }
+function blitzEnd(){ if(S._blitzOver)return; S._blitzOver=true; stopBlitzClock(); showFinal(); }
+
+// Tages-Rotation: Hitzewelle ⇄ Blitz (für alle gleich, nach Wiener Datum)
+function isBlitzDay(){ var k=getViennaDateKey(); var n=parseInt((k||'').replace(/-/g,''),10)||0; return (n%2)===1; }
+function startRotationMode(){ if(isBlitzDay())startBlitz(); else startSurvival(); }
+function applyDailyRotation(){
+  var blitz=isBlitzDay();
+  var t=$('rotation-card-title'),s=$('rotation-card-sub'),c=$('rotation-card-cta'),card=$('rotation-card');
+  if(blitz){ if(t)t.textContent='⚡ Blitz'; if(s)s.innerHTML='So viele Runden wie möglich in 60 Sekunden!'; if(c)c.textContent='Los! →'; if(card)card.classList.add('blitz-card'); }
+  else { if(t)t.textContent='Hitzewelle'; if(s)s.innerHTML='12 Runden, steigende Schwellen.<br>Bleib über dem Limit, sonst bist du raus.'; if(c)c.textContent='Durchhalten →'; if(card)card.classList.remove('blitz-card'); }
+}
+
 // Erklär-Overlay vor der ersten Runde
 function showSurvivalExplain(){
   var ov=$('survival-explain-overlay'); if(!ov){beginSurvivalRounds();return;}
@@ -1070,6 +1105,8 @@ function submitGuess(){
     }
   }
   afterGuessExtras(loc.id);
+  // Blitz: kurz Ergebnis zeigen, dann automatisch weiter (manuelles „Weiter" geht auch schneller)
+  if(S.mode==='blitz'&&!S._blitzOver){ setTimeout(function(){ if(!S._blitzOver&&$('result-screen').classList.contains('active'))nextRound(); },1100); }
 }
 
 function initResultMap(loc,guess){
@@ -1089,6 +1126,7 @@ function nextRound(){
   var _now=Date.now();
   if(_now-(S._lastNextRoundAt||0)<1200)return;
   S._lastNextRoundAt=_now;
+  if(S.mode==='blitz'){ if(S._blitzOver||Date.now()>=S.blitzEndAt){ blitzEnd(); return; } }
   vsLog('nextRound → Runde '+(S.round+2)+'/'+S.roundsTotal);
   sfx.next(); clearNextVoteTimers(); hideVsWaitOverlay(); stopSpectatePoll();
   $('vs-bottom-wait').classList.remove('show');
@@ -1116,11 +1154,12 @@ function showSurvivalFail(){
 }
 
 function showFinal(){
+  stopBlitzClock();
   sfx.final(S.score); show('final-screen'); $('final-score-num').textContent='0';
-  var modeLabel={daily:'Tägliche Challenge beendet',survival:'🔥 Hitzewelle bestanden!',solo:'Spiel beendet',vs:'Spiel beendet'};
+  var modeLabel={daily:'Tägliche Challenge beendet',survival:'🔥 Hitzewelle bestanden!',solo:'Spiel beendet',vs:'Spiel beendet',blitz:'⚡ Blitz beendet'};
   $('final-title').textContent=modeLabel[S.mode]||'Spiel beendet';
   var maxPossible=S.roundsTotal*MAX_PTS;
-  $('final-sub-label').textContent=S.mode==='daily'?'/ 5 000 Punkte':'/ '+fmtN(maxPossible)+' Punkte';
+  $('final-sub-label').textContent=S.mode==='blitz'?(fmtN((S.roundScores||[]).length)+' Runden in 60s'):S.mode==='daily'?'/ 5 000 Punkte':'/ '+fmtN(maxPossible)+' Punkte';
   $('vs-result-box').classList.remove('show');
   S.myPlayAgainVoted=false; S.playAgainVotes=0;
   $('play-again-vote').style.display='none'; $('play-again-vote').textContent='';
@@ -1894,6 +1933,7 @@ function goHome(){
   if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}
   if(S.heartbeatInterval){clearInterval(S.heartbeatInterval);S.heartbeatInterval=null;}
   stopSpectatePoll();clearNextVoteTimers();
+  if(typeof stopBlitzClock==='function'){S._blitzOver=true;stopBlitzClock();}
   if(S.vsRoom&&S.isVs)cleanupRoom();
   S.isVs=false;S.vsRoom=null;$('play-again-btn').disabled=false;$('play-again-btn').style.display='';
   $('vs-left-msg').classList.remove('show');$('survival-fail-overlay').classList.remove('show');
@@ -2691,6 +2731,7 @@ async function votePlayAgain(){
   if(S.isVs){ backToLobby(); return; }
   if(S.mode==='daily'){startDailyChallenge();return;}
   if(S.mode==='survival'){startSurvival();return;}
+  if(S.mode==='blitz'){startBlitz();return;}
   if(S.mode==='solo'){startSolo();return;}
 }
 async function backToLobby(){
@@ -2737,7 +2778,7 @@ function goHomeFromGame(){
   if(!confirm('Zum Hauptmenü zurückgehen? Dein Fortschritt geht verloren.'))return;
   if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}
   if(S.heartbeatInterval){clearInterval(S.heartbeatInterval);S.heartbeatInterval=null;}
-  stopSpectatePoll();clearNextVoteTimers();if(S.vsRoom&&S.isVs)cleanupRoom();S.isVs=false;S.vsRoom=null;
+  stopSpectatePoll();clearNextVoteTimers();if(typeof stopBlitzClock==='function'){S._blitzOver=true;stopBlitzClock();}if(S.vsRoom&&S.isVs)cleanupRoom();S.isVs=false;S.vsRoom=null;
   $('survival-fail-overlay').classList.remove('show');$('survival-intro-overlay').classList.remove('show');$('survival-score-overlay').classList.remove('show');var _seo=$('survival-explain-overlay');if(_seo)_seo.classList.remove('show');
   show('start-screen');renderStreakDisplay('streak-display-start');
 }
