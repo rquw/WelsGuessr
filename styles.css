@@ -269,7 +269,7 @@ body::before{
 .lb-name:hover{color:var(--gold)}
 .lb-games{font-size:.6rem;color:var(--mist);flex-shrink:0}
 .lb-score{color:var(--gold);font-weight:500;min-width:4.2rem;text-align:right;flex-shrink:0;font-size:.88rem}
-.lb-date{font-size:.6rem;color:var(--mist);cursor:default;flex-shrink:0;min-width:5rem;text-align:right}
+.lb-date{font-size:.6rem;color:var(--mist);cursor:default;flex-shrink:0;min-width:3.1rem;text-align:right;white-space:nowrap}
 .lb-profile-btn{background:none;border:1px solid rgba(255,255,255,.1);color:var(--mist);font-size:.58rem;font-family:'DM Mono',monospace;border-radius:7px;padding:.2rem .48rem;cursor:pointer;transition:.15s;flex-shrink:0;opacity:0;pointer-events:none}
 .lb-row:hover .lb-profile-btn{opacity:1;pointer-events:auto}
 .lb-profile-btn:hover{border-color:var(--gold);color:var(--gold)}
@@ -287,10 +287,22 @@ body::before{
 .admin-mode .lb-profile-btn{display:none}
 .lb-name[data-realname]{cursor:default}
 .lb-name.lb-realname-shown{color:var(--gold)}
+/* Beim Hover über den Namen: vollen Namen zeigen, kollidierende Spalten ausblenden */
+.lb-name:hover{overflow:visible;text-overflow:clip}
+.lb-name:hover~.lb-score,.lb-name:hover~.lb-date{display:none}
 /* Touch: Hover-Inhalte per Tippen erreichbar */
 .is-touch .lb-profile-btn{opacity:1;pointer-events:auto}
 .is-touch .lb-name-tappable{cursor:pointer;text-decoration:underline dotted rgba(201,168,76,.45);text-underline-offset:3px}
 .is-touch .lb-date{cursor:pointer;text-decoration:underline dotted rgba(143,168,154,.4);text-underline-offset:3px}
+/* Schmale Screens: Name bekommt Vorrang, Datum/Abstände kompakter */
+@media(max-width:480px){
+  .lb-row{gap:.45rem;padding:.7rem .6rem}
+  .lb-rank{width:1.25rem}
+  .lb-avatar{width:1.7rem;height:1.7rem}
+  .lb-score{min-width:3.4rem;font-size:.8rem}
+  .lb-date{min-width:2.7rem;font-size:.56rem}
+  .lb-name{font-size:.8rem;min-width:4.5rem}
+}
 #name-prompt-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:600}
 #name-prompt-modal.show{display:flex}
 #name-prompt-modal.show .modal{opacity:1;transform:translateY(0)}

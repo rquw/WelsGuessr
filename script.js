@@ -408,7 +408,7 @@ function fmtDate(d){
   var ymd=function(dt){return dt.toLocaleDateString('sv',{timeZone:'Europe/Vienna'});};
   var diff=Math.round((new Date(ymd(new Date()))-new Date(ymd(d)))/864e5);
   if(diff===0)return'Heute';if(diff===1)return'Gestern';if(diff===2)return'Vorgestern';
-  return d.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  return d.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit',year:'2-digit'});
 }
 function hdg(a){return['N','NO','O','SO','S','SW','W','NW'][Math.round((((a%360)+360)%360)/45)%8];}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -837,9 +837,18 @@ function blitzEnd(){ if(S._blitzOver)return; S._blitzOver=true; stopBlitzClock()
 
 // Tages-Rotation: Hitzewelle ⇄ Blitz (für alle gleich, nach Wiener Datum)
 function isBlitzDay(){ var k=getViennaDateKey(); var n=parseInt((k||'').replace(/-/g,''),10)||0; return (n%2)===1; }
-function startRotationMode(){ if(isBlitzDay())startBlitz(); else startSurvival(); }
+// lokaler Admin-Override (nur dieser Client, mit Taste K umschaltbar)
+var _blitzOverride=(function(){try{var v=localStorage.getItem('pg_blitz_override');return v==='1'?true:v==='0'?false:null;}catch(e){return null;}})();
+function effectiveBlitzDay(){ return _blitzOverride!=null ? _blitzOverride : isBlitzDay(); }
+function toggleBlitzOverride(){
+  _blitzOverride = !effectiveBlitzDay();
+  try{localStorage.setItem('pg_blitz_override',_blitzOverride?'1':'0');}catch(e){}
+  applyDailyRotation();
+  if(typeof showDcNotice==='function'){ showDcNotice('Lokal: '+(_blitzOverride?'⚡ Blitz':'🔥 Hitzewelle')+' aktiv'); if(typeof hideDcNotice==='function')setTimeout(hideDcNotice,2500); }
+}
+function startRotationMode(){ if(effectiveBlitzDay())startBlitz(); else startSurvival(); }
 function applyDailyRotation(){
-  var blitz=isBlitzDay();
+  var blitz=effectiveBlitzDay();
   var t=$('rotation-card-title'),s=$('rotation-card-sub'),c=$('rotation-card-cta'),card=$('rotation-card');
   if(blitz){ if(t)t.textContent='⚡ Blitz'; if(s)s.innerHTML='So viele Runden wie möglich in 60 Sekunden!'; if(c)c.textContent='Los! →'; if(card)card.classList.add('blitz-card'); }
   else { if(t)t.textContent='Hitzewelle'; if(s)s.innerHTML='12 Runden, steigende Schwellen.<br>Bleib über dem Limit, sonst bist du raus.'; if(c)c.textContent='Durchhalten →'; if(card)card.classList.remove('blitz-card'); }
