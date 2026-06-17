@@ -53,6 +53,22 @@
   </div>
 </div>
 
+<!-- BLITZ EXPLAIN / INTRO OVERLAY -->
+<div id="blitz-explain-overlay">
+  <div id="bz-bolts"></div>
+  <div class="se-card blitz-card-intro">
+    <div class="se-badge">⚡ Blitz</div>
+    <h2 class="se-title">Schnell raten!</h2>
+    <div class="se-rules">
+      <div class="se-rule"><span class="se-ico">⏱</span><div>Du hast eine <b>Minute</b> Zeit.</div></div>
+      <div class="se-rule"><span class="se-ico">📍</span><div>Schaff so <b>viele Runden</b> wie möglich.</div></div>
+      <div class="se-rule"><span class="se-ico">⚡</span><div>Nach jedem Tipp geht's <b>sofort weiter</b>.</div></div>
+      <div class="se-rule"><span class="se-ico">🎯</span><div>Es zählt <b>nicht</b> zur Bestenliste!</div></div>
+    </div>
+    <button class="big-btn primary se-start" id="bz-start-btn" onclick="beginBlitzRounds()">Los! ⚡</button>
+  </div>
+</div>
+
 <!-- SURVIVAL SCORE REVEAL OVERLAY -->
 <div id="survival-score-overlay">
   <canvas id="survival-score-canvas"></canvas>
@@ -450,13 +466,14 @@
 <div class="screen" id="game-screen">
   <button id="back-to-home-btn" onclick="goHomeFromGame()" title="Zurück zum Hauptmenü">← Menü</button>
   <div id="top-bar">
-    <div id="round-badge">Runde <span id="round-num">1</span> / <span id="round-total">5</span></div>
+    <div id="round-badge">Runde <span id="round-num">1</span><span id="round-total-wrap"> / <span id="round-total">5</span></span></div>
     <div id="score-badge">◆ <span id="score-display">0</span></div>
     <div id="top-bar-diff">Schwierigkeit: Unbestimmt</div>
   </div>
   <div id="vs-badge"></div>
   <div id="vs-opponent-guessed"></div>
   <div id="survival-badge"></div>
+  <div id="mp-timer" style="display:none"></div>
   <div id="pano-container">
     <div id="pano-strip"></div>
     <div id="pano-error">

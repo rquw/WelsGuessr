@@ -305,7 +305,8 @@ function resetScoreSavedUI(){
 }
 function updateSaveBtnVisibility(){
   var btn=$('save-btn'); if(!btn)return;
-  if(S.isLoggedIn)btn.style.display='none'; else btn.style.display='';
+  // Blitz zählt nicht zur Bestenliste → kein Eintragen-Button
+  if(S.isLoggedIn||S.mode==='blitz')btn.style.display='none'; else btn.style.display='';
 }
 
 // ── Backdrop ──
@@ -818,7 +819,17 @@ function startBlitz(){
   resetBaseState(); S.isVs=false; S._blitzOver=false;
   if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}
   S.locations=shuffle(LOCATIONS.slice()).slice(0,S.roundsTotal);
-  $('vs-badge').style.display='none'; $('vs-strip').style.display='none'; var rt=$('round-total'); if(rt)rt.textContent='∞';
+  $('vs-badge').style.display='none'; $('vs-strip').style.display='none';
+  showBlitzExplain();
+}
+// Erklär-Overlay vor dem Blitz (wie bei Hitzewelle) – Uhr startet erst beim "Los!"
+function showBlitzExplain(){
+  var ov=$('blitz-explain-overlay'); if(!ov){beginBlitzRounds();return;}
+  ov.classList.remove('show'); void ov.offsetWidth; ov.classList.add('show');
+}
+function beginBlitzRounds(){
+  var ov=$('blitz-explain-overlay'); if(ov)ov.classList.remove('show');
+  resumeAC(); if(sfx.start)sfx.start();
   S.blitzEndAt=Date.now()+BLITZ_SECONDS*1000;
   startBlitzClock();
   show('game-screen'); initPanoDrag(); loadRound();
@@ -1029,6 +1040,9 @@ function loadRound(){
   S.current=S.locations[S.round];
   if(!S.current){ if(S.isVs){showFinal();} return; }   // Schutz: kein Ort für diese Runde
   $('round-num').textContent=S.round+1; $('score-display').textContent=fmtN(S.score);
+  // Blitz: nur "Runde X" (ohne "/ ∞"), sonst "Runde X / Y"
+  var _rtw=$('round-total-wrap'); if(_rtw)_rtw.style.display=(S.mode==='blitz')?'none':'';
+  if(S.mode!=='blitz'){var _rt=$('round-total'); if(_rt)_rt.textContent=S.roundsTotal;}
   hideSkipPanoBtn();
   // Mehrspieler: Modifiers + Rundenuhr anwenden; Solo: Weiter-Button sichtbar
   var _nb=$('next-btn'); if(_nb)_nb.style.display=S.isVs?'none':'';
@@ -1050,7 +1064,7 @@ function loadRound(){
     showSurvivalRoundIntro(S.round+1,getSurvivalThreshold(S.round),null);
   } else {
     sfx.roundIntro(S.round+1);
-    showRoundPopup('Runde <span>'+(S.round+1)+'/'+S.roundsTotal+'</span>');
+    showRoundPopup('Runde <span>'+(S.round+1)+(S.mode==='blitz'?'':'/'+S.roundsTotal)+'</span>');
     loadPano(S.current); initGameMap();
   }
 }
@@ -1206,8 +1220,8 @@ function showFinal(){
   });
   if(S.isVs)mpShowFinal();
   if(S.mode==='daily')updateStreak(S.dailyKey);
-  if(S.isLoggedIn&&!S.hasSavedThisRun&&!soloRanked&&!S.isVs){
-    // soloRanked speichert erst im Rang-Panel; Mehrspieler-Punkte gehören NICHT in die Solo-Bestenliste
+  if(S.isLoggedIn&&!S.hasSavedThisRun&&!soloRanked&&!S.isVs&&S.mode!=='blitz'){
+    // soloRanked speichert erst im Rang-Panel; Mehrspieler- & Blitz-Punkte gehören NICHT in die Solo-Bestenliste
     S.pendingSaveTarget=S.mode==='daily'?'daily':'global';
     setTimeout(function(){autoSaveLoggedInUser();},800);
   }
@@ -1946,6 +1960,7 @@ function goHome(){
   if(S.vsRoom&&S.isVs)cleanupRoom();
   S.isVs=false;S.vsRoom=null;$('play-again-btn').disabled=false;$('play-again-btn').style.display='';
   $('vs-left-msg').classList.remove('show');$('survival-fail-overlay').classList.remove('show');
+  var _bz=$('blitz-explain-overlay');if(_bz)_bz.classList.remove('show');
   show('start-screen');renderStreakDisplay('streak-display-start');
 }
 async function cleanupRoom(){try{await sbFetch('rooms?id=eq.'+S.vsRoom,'DELETE');}catch(e){}}

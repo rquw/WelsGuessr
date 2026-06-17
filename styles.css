@@ -642,6 +642,20 @@ body::before{
 .se-start:hover{background:linear-gradient(135deg,rgba(224,92,42,.6),rgba(224,92,42,.3))!important;border-color:var(--ember-light)!important;transform:translateY(-1px)}
 @keyframes sePulse{0%,100%{box-shadow:0 0 0 0 rgba(224,92,42,.45)}50%{box-shadow:0 0 28px 6px rgba(224,92,42,.35)}}
 
+/* ── BLITZ INTRO OVERLAY (Strom-Theme, nutzt .se-card-Struktur) ── */
+#blitz-explain-overlay{display:none;position:fixed;inset:0;z-index:880;background:radial-gradient(ellipse at 50% 120%,#3a3000 0%,#1a1a05 32%,#0a0e0a 62%,#050d08 100%);align-items:center;justify-content:center;overflow:hidden;padding:1.2rem}
+#blitz-explain-overlay.show{display:flex}
+#bz-bolts{position:absolute;inset:0;pointer-events:none;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,rgba(255,214,80,.10),transparent 60%);animation:bzFlicker 3.2s ease-in-out infinite}
+@keyframes bzFlicker{0%,100%{opacity:.55}45%{opacity:.9}70%{opacity:.4}}
+.blitz-card-intro{border-color:rgba(255,214,80,.4)!important;box-shadow:0 24px 70px rgba(0,0,0,.55),inset 0 0 40px rgba(255,214,80,.08)!important}
+.blitz-card-intro .se-badge{color:#ffe680;background:rgba(255,214,80,.14);border-color:rgba(255,214,80,.45);text-shadow:0 0 16px rgba(255,214,80,.6)}
+.blitz-card-intro .se-title{text-shadow:0 0 36px rgba(255,214,80,.5)}
+.blitz-card-intro .se-rule .se-ico{filter:drop-shadow(0 0 8px rgba(255,214,80,.45))}
+.blitz-card-intro .se-rule b{color:#ffe680}
+.blitz-card-intro .se-start{border-color:rgba(255,214,80,.6)!important;background:linear-gradient(135deg,rgba(255,200,60,.4),rgba(255,200,60,.18))!important;color:#fff4d0!important;animation:bzPulse 1.8s ease-in-out infinite}
+.blitz-card-intro .se-start:hover{background:linear-gradient(135deg,rgba(255,200,60,.6),rgba(255,200,60,.3))!important;border-color:#ffe680!important}
+@keyframes bzPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,214,80,.45)}50%{box-shadow:0 0 28px 6px rgba(255,214,80,.35)}}
+
 /* ── PODIUM ANIMATIONS ── */
 @keyframes podiumRise{
   from{opacity:0;transform:translateY(30px) scale(.9)}
