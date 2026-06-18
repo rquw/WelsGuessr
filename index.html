@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=23">
+<link rel="stylesheet" href="styles.css?v=24">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -121,6 +121,17 @@
     <p id="logo-p">wie gut kennst du wels?</p>
   </div>
   <div id="streak-display-start" style="display:none"></div>
+  <div id="motd-board">
+    <div class="motd-head">
+      <span class="motd-title">📌 Nachricht des Tages</span>
+      <span class="motd-date" id="motd-date"></span>
+    </div>
+    <div class="motd-text" id="motd-text">—</div>
+    <div class="motd-admin" id="motd-admin" style="display:none">
+      <textarea class="motd-input" id="motd-input" rows="4" maxlength="280" placeholder="Nachricht des Tages…"></textarea>
+      <button class="big-btn" id="motd-save-btn" onclick="saveMotd()">Speichern</button>
+    </div>
+  </div>
   <div class="start-main" id="start-main">
     <button class="big-btn primary" onclick="openPlayMenu()">Spielen</button>
     <button class="big-btn" onclick="openLeaderboard()">Bestenliste</button>
@@ -681,8 +692,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=31"></script>
-<script src="patches.js?v=13"></script>
+<script src="script.js?v=32"></script>
+<script src="patches.js?v=14"></script>
 <script src="nav.js?v=9"></script>
 <script src="profile.js?v=6"></script><!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">

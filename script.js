@@ -345,7 +345,7 @@ function show(id){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active','visible');});
   var el=$(id); el.classList.add('active');
   requestAnimationFrame(function(){requestAnimationFrame(function(){el.classList.add('visible');});});
-  if(id==='start-screen') setBackdrop(getRandomLocationImage());
+  if(id==='start-screen'){ setBackdrop(getRandomLocationImage()); if(typeof loadMotd==='function')loadMotd(); }
   else if(id==='play-menu-screen'){setBackdrop(getRandomLocationImage());setMenuCardBackdrops();}
   else if(id==='daily-screen') setBackdrop(getDailyLocationImage());
   else if(id==='qr-join-screen') setBackdrop(getRandomLocationImage());
@@ -1427,7 +1427,7 @@ document.addEventListener('keydown',function(e){
 function openAdminFromLb(){closeModal('lb-modal');openModal('admin-modal');setTimeout(function(){$('admin-pw').focus();},300);}
 function checkAdminPw(){
   if($('admin-pw').value==='0907'){
-    lbAdminMode=true;$('admin-pw').value='';closeModal('admin-modal');openLeaderboard();$('lb-admin-hint').textContent='Admin-Modus aktiv';
+    lbAdminMode=true;$('admin-pw').value='';closeModal('admin-modal');openLeaderboard();$('lb-admin-hint').textContent='Admin-Modus aktiv';if(typeof refreshMotdAdmin==='function')refreshMotdAdmin();
   } else {$('admin-error').textContent='Falsches Passwort.';}
 }
 function setLeaderboardTab(tab){
@@ -1484,6 +1484,41 @@ async function saveMilestone(){
   try{ await sbFetch('wels_config?key=eq.milestone','PATCH',{value:String(v)}); }catch(e){}
   if(btn){btn.disabled=false;btn.textContent='Setzen';}
   await loadTotalPoints(); renderTotalPointsModal();
+  try{tone(660,'sine',.1,.08);}catch(e){}
+}
+
+// ── Nachricht des Tages (Startseite, links; in wels_config gespeichert) ──
+var _motdText='';
+function renderMotdDate(){
+  var d=$('motd-date'); if(!d)return;
+  d.textContent=new Date().toLocaleDateString('de-AT',{weekday:'long',day:'2-digit',month:'long',year:'numeric',timeZone:'Europe/Vienna'});
+}
+async function loadMotd(){
+  renderMotdDate();
+  try{
+    var rows=await sbFetch('wels_config?key=eq.motd&select=value');
+    _motdText=(rows&&rows.length&&rows[0].value)?rows[0].value:'';
+  }catch(e){}
+  var t=$('motd-text');
+  if(t){ if(_motdText){t.textContent=_motdText;t.classList.remove('empty');} else {t.textContent='Noch keine Nachricht.';t.classList.add('empty');} }
+  refreshMotdAdmin();
+}
+function refreshMotdAdmin(){
+  var adm=$('motd-admin'); if(!adm)return;
+  var on=(typeof lbAdminMode!=='undefined'&&lbAdminMode);
+  adm.style.display=on?'flex':'none';
+  var inp=$('motd-input'); if(inp&&on&&document.activeElement!==inp)inp.value=_motdText;
+}
+async function saveMotd(){
+  var inp=$('motd-input'); if(!inp)return;
+  var text=(inp.value||'').trim();
+  var btn=$('motd-save-btn'); if(btn){btn.disabled=true;btn.textContent='…';}
+  try{
+    var res=await sbFetch('wels_config?key=eq.motd','PATCH',{value:text});
+    if(!res||!res.length)await sbFetch('wels_config','POST',{key:'motd',value:text});  // Zeile fehlt → anlegen
+  }catch(e){}
+  if(btn){btn.disabled=false;btn.textContent='Speichern';}
+  await loadMotd();
   try{tone(660,'sine',.1,.08);}catch(e){}
 }
 function animateTotalPoints(el,from,to){
@@ -2841,6 +2876,7 @@ window.addEventListener('load',function(){
   setTimeout(function(){renderStreakDisplay('streak-display-start');},400);
   setDailyInfo();getOrCreateDeviceId();refreshAuthUI();checkDeepLink();cleanupStaleRooms();loadDailyBoard();loadDailyChampions();updateDailyPlayAvailability();startDailyTimers();
   loadTotalPoints(); setInterval(loadTotalPoints,10000);
+  loadMotd();
   setTimeout(checkNamePromptNeeded,1500);
 });
 

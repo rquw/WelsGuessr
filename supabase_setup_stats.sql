@@ -14,6 +14,7 @@ end
 $cfg$;
 grant all on public.wels_config to anon, authenticated;
 insert into public.wels_config(key, value) values ('milestone', '') on conflict (key) do nothing;
+insert into public.wels_config(key, value) values ('motd', '') on conflict (key) do nothing;
 
 -- 2) Kombinierte Statistik für den Zähler + Detail-Popup
 create or replace function public.wels_points_stats()

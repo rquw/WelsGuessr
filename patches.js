@@ -11,6 +11,32 @@ var CURRENT_SITE = 'wels';        // pro Repo: 'wels' bzw. 'scharten'
 var _profileSite = CURRENT_SITE;       // aktuell im Profil gewählter Standort
 var _profileName = null;               // aktuell angezeigter Spieler (für Re-Render bei Standortwechsel)
 function _siteCfg(key){ return GUESSR_SITES.find(function(s){return s.key===key;}) || GUESSR_SITES[0]; }
+
+// ── Tages-Champion: wie oft war der Spieler Sieger einer (vergangenen) Daily ──
+// Daily-Modus soll mehr bedeuten: jeder Tagessieg gibt XP-Bonus und stapelt im Badge.
+var CHAMPION_XP = 2500;   // XP pro gewonnener Tages-Challenge (halbe perfekte Daily)
+async function getDailyChampionships(name, site){
+  var out = { wins:0, dates:[] };
+  if(!name || typeof sbFetch!=='function') return out;
+  try{
+    var tbl = (site && site.daily) || 'wels_daily_scores';
+    var rows = await sbFetch(tbl + '?select=name,score,date_key&order=date_key.desc&limit=5000');
+    if(!rows || !rows.length) return out;
+    var today = (typeof getViennaDateKey === 'function') ? getViennaDateKey() : null;
+    var bestByDate = {};
+    rows.forEach(function(r){
+      var k = r.date_key; if(!k || k===today) return;            // heute ist noch nicht entschieden
+      var sc = +r.score || 0;
+      if(!bestByDate[k] || sc > bestByDate[k].score) bestByDate[k] = { score:sc, name:r.name };
+    });
+    var ln = String(name).toLowerCase();
+    Object.keys(bestByDate).forEach(function(k){
+      var b = bestByDate[k];
+      if(b.name && String(b.name).toLowerCase() === ln){ out.wins++; out.dates.push(k); }
+    });
+  }catch(_){}
+  return out;
+}
 // Standort im Profil umschalten (Buttons rufen das auf)
 window.selectProfileSite = function(key){
   if(key===_profileSite) return;
@@ -311,12 +337,17 @@ document.addEventListener('DOMContentLoaded', function() {
       el = document.getElementById('ps-total'); if (el) el.textContent = fmtN(total);
       el = document.getElementById('ps-ach');   if (el) el.textContent = haveKeys.size + '/' + ACHIEVEMENTS.length;
 
+      // Tages-Champion-Statistik (für XP-Bonus + gestapeltes Badge)
+      var champData = await getDailyChampionships(name, SITE);
+      var champBonus = (champData.wins || 0) * CHAMPION_XP;
+
       // Level / XP (echte Gesamt-XP, nicht nur 100 Spiele) + Avatar-Rahmen
       try {
         var xp = await sbFetch('rpc/wels_player_xp?p_name=' + encodeURIComponent(name));
         if (Array.isArray(xp)) xp = xp[0];
         xp = parseInt((xp && xp.wels_player_xp != null ? xp.wels_player_xp : xp), 10);
         if (!(xp >= 0)) xp = total;
+        xp += champBonus;   // jeder Tagessieg zählt als XP
         if (typeof pgLevel === 'function') {
           var lv = pgLevel(xp), minx = pgLevelMinXp(lv), nextx = pgLevelMinXp(lv + 1);
           var pct = Math.max(0, Math.min(100, Math.round((xp - minx) / (nextx - minx) * 100)));
@@ -325,7 +356,8 @@ document.addEventListener('DOMContentLoaded', function() {
           var info2 = document.querySelector('#profile-screen .profile-header-info') || document.querySelector('#profile-screen .profile-header');
           var xpEl = document.getElementById('profile-xp');
           if (!xpEl && info2) { xpEl = document.createElement('div'); xpEl.id = 'profile-xp'; info2.appendChild(xpEl); }
-          if (xpEl) xpEl.innerHTML = '<div class="xp-track"><div class="xp-bar" style="width:' + pct + '%"></div></div><div class="xp-lbl">' + fmtN(xp - minx) + ' / ' + fmtN(nextx - minx) + ' XP bis Level ' + (lv + 1) + '</div>';
+          var champNote = champBonus > 0 ? ' · 👑 +' + fmtN(champBonus) + ' XP aus ' + champData.wins + ' Tagessieg' + (champData.wins>1?'en':'') : '';
+          if (xpEl) xpEl.innerHTML = '<div class="xp-track"><div class="xp-bar" style="width:' + pct + '%"></div></div><div class="xp-lbl">' + fmtN(xp - minx) + ' / ' + fmtN(nextx - minx) + ' XP bis Level ' + (lv + 1) + champNote + '</div>';
           var av2 = document.getElementById('profile-avatar');
           if (av2) { av2.classList.remove('pf-frame-bronze','pf-frame-silver','pf-frame-gold','pf-frame-rainbow'); var tier = pgFrameTier(lv); if (tier) av2.classList.add('pf-frame-' + tier); }
         }
@@ -346,21 +378,12 @@ document.addEventListener('DOMContentLoaded', function() {
       } catch (_) {}
       el = document.getElementById('ps-rank'); if (el) el.textContent = rank ? '#' + rank : '—';
 
-      // Champion von gestern (Top der gestrigen Daily)
-      var wasChampYesterday = false;
-      try {
-        var yKey = (typeof getYesterdayKey === 'function') ? getYesterdayKey() : null;
-        if (yKey) {
-          var yTop = await sbFetch(SITE.daily + '?date_key=eq.' + encodeURIComponent(yKey) + '&select=name,score&order=score.desc&limit=1');
-          if (yTop && yTop.length && yTop[0].name && yTop[0].name.toLowerCase() === name.toLowerCase()) wasChampYesterday = true;
-        }
-      } catch (_) {}
 
       // Badges anhängen
       if (rank === 1) addBadge('badge-gold1', '🥇 Bestenliste #1');
       else if (rank === 2) addBadge('badge-gold2', '🥈 Bestenliste #2');
       else if (rank === 3) addBadge('badge-gold3', '🥉 Bestenliste #3');
-      if (wasChampYesterday) addBadge('badge-champ', '👑 Champion von gestern');
+      if (champData.wins > 0) addBadge('badge-champ', (champData.wins > 1 ? champData.wins + 'x ' : '') + '👑 Champion von gestern');
       if (haveKeys.size >= ACHIEVEMENTS.length) addBadge('badge-allach', '🏅 Alle Errungenschaften');
 
       // 1v1-Siege (eigenes Profil, lokal getrackt)
