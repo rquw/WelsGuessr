@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=24">
+<link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -121,7 +121,7 @@
     <p id="logo-p">wie gut kennst du wels?</p>
   </div>
   <div id="streak-display-start" style="display:none"></div>
-  <div id="motd-board">
+  <div id="motd-board" class="side-board">
     <div class="motd-head">
       <span class="motd-title">📌 Nachricht des Tages</span>
       <span class="motd-date" id="motd-date"></span>
@@ -131,6 +131,14 @@
       <textarea class="motd-input" id="motd-input" rows="4" maxlength="280" placeholder="Nachricht des Tages…"></textarea>
       <button class="big-btn" id="motd-save-btn" onclick="saveMotd()">Speichern</button>
     </div>
+  </div>
+  <div id="changelog-board" class="side-board" onclick="openChangelog()" title="Alle Updates ansehen">
+    <div class="motd-head">
+      <span class="motd-title">📰 Was ist neu <span class="cl-board-badge" id="cl-board-badge" style="display:none">NEU</span></span>
+      <span class="motd-date">Update-Protokoll</span>
+    </div>
+    <div class="cl-board-list" id="cl-board-list"><div class="motd-text empty">Lade…</div></div>
+    <div class="cl-board-more">Alle Updates ansehen →</div>
   </div>
   <div class="start-main" id="start-main">
     <button class="big-btn primary" onclick="openPlayMenu()">Spielen</button>
@@ -153,7 +161,7 @@
           </div>
         </div>
       </div>
-      <button class="start-icon-btn" data-label="Was ist neu?" onclick="openChangelog()" aria-label="Was ist neu?">📰</button>
+      <button class="start-icon-btn" id="changelog-icon-btn" data-label="Was ist neu?" onclick="openChangelog()" aria-label="Was ist neu?">📰</button>
     </div>
     <div id="total-points-wrap" onclick="openTotalPointsDetails()" title="Details anzeigen">
       <div id="total-points-num">—</div>
@@ -174,6 +182,8 @@
       <div class="tpd-stat"><div class="tpd-num" id="tpd-today">—</div><div class="tpd-lbl">Heute</div></div>
     </div>
     <div class="tpd-top-row">🏆 Top-Beitrag: <span id="tpd-top">—</span></div>
+    <div class="tpd-feed-label">Letzte Beiträge</div>
+    <div id="total-points-feed" aria-hidden="true"></div>
     <div id="tpd-milestone-wrap" style="display:none">
       <div class="tpd-milestone-label" id="tpd-milestone-label"></div>
       <div class="tpd-milestone-track"><div class="tpd-milestone-bar" id="tpd-milestone-bar"></div></div>
@@ -348,10 +358,23 @@
     </div>
     <div id="lb-list"><div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Lade…</div></div>
     <div class="divider"></div>
-    <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">
       <span id="lb-admin-hint" style="font-size:.58rem;color:var(--mist)"></span>
-      <button class="big-btn" style="padding:.6rem 1rem;font-size:.72rem" onclick="closeModal('lb-modal')">Schließen</button>
+      <div style="display:flex;gap:.5rem">
+        <button id="lb-accounts-btn" class="big-btn" style="display:none;padding:.6rem 1rem;font-size:.72rem" onclick="openAdminAccounts()">👥 Accounts</button>
+        <button class="big-btn" style="padding:.6rem 1rem;font-size:.72rem" onclick="closeModal('lb-modal')">Schließen</button>
+      </div>
     </div>
+  </div>
+</div>
+
+<!-- ADMIN: ACCOUNTS-ÜBERSICHT (Entwickler-Tool) -->
+<div class="modal-bg" id="admin-accounts-modal">
+  <div class="modal" id="admin-accounts-inner">
+    <h2>Accounts <span id="aa-count" class="aa-count"></span></h2>
+    <input class="modal-input" id="aa-search" placeholder="Suchen: Name, Realname oder #Nummer" oninput="renderAdminAccounts()" autocomplete="off">
+    <div id="aa-list" class="aa-list"><div class="aa-loading">Lade…</div></div>
+    <button class="big-btn" style="margin-top:.7rem" onclick="closeModal('admin-accounts-modal')">Schließen</button>
   </div>
 </div>
 
@@ -692,8 +715,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=32"></script>
-<script src="patches.js?v=14"></script>
+<script src="script.js?v=34"></script>
+<script src="patches.js?v=15"></script>
 <script src="nav.js?v=9"></script>
 <script src="profile.js?v=6"></script><!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">

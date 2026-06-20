@@ -345,7 +345,7 @@ function show(id){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active','visible');});
   var el=$(id); el.classList.add('active');
   requestAnimationFrame(function(){requestAnimationFrame(function(){el.classList.add('visible');});});
-  if(id==='start-screen'){ setBackdrop(getRandomLocationImage()); if(typeof loadMotd==='function')loadMotd(); }
+  if(id==='start-screen'){ setBackdrop(getRandomLocationImage()); if(typeof loadMotd==='function')loadMotd(); if(typeof loadChangelogBoard==='function')loadChangelogBoard(); }
   else if(id==='play-menu-screen'){setBackdrop(getRandomLocationImage());setMenuCardBackdrops();}
   else if(id==='daily-screen') setBackdrop(getDailyLocationImage());
   else if(id==='qr-join-screen') setBackdrop(getRandomLocationImage());
@@ -1438,6 +1438,49 @@ function setLbSort(sort){
 }
 function openLeaderboard(){openModal('lb-modal');loadLeaderboardData();}
 
+// ── Admin-Tool: Accounts-Übersicht mit Schnellzugriff ──
+var _adminAccounts=null;
+async function openAdminAccounts(){
+  if(!lbAdminMode)return;
+  openModal('admin-accounts-modal');
+  if($('aa-search'))$('aa-search').value='';
+  $('aa-list').innerHTML='<div class="aa-loading">Lade…</div>';
+  try{
+    var players=await sbFetch('players?select=account_number,name,vorname,nachname,avatar_url,created_at,streak_count&order=account_number.asc&limit=10000')||[];
+    var scores=await sbFetch('wels_scores?select=name,score&limit=10000')||[];
+    var best={},games={};
+    scores.forEach(function(s){ if(!s.name)return; var k=s.name.toLowerCase(); if(best[k]==null||s.score>best[k])best[k]=s.score; games[k]=(games[k]||0)+1; });
+    _adminAccounts=players.map(function(p){
+      var k=(p.name||'').toLowerCase();
+      return { num:p.account_number, name:p.name||'?', real:(p.vorname?p.vorname+(p.nachname?' '+p.nachname:''):''), avatar:p.avatar_url||'', created:p.created_at, best:best[k]||0, games:games[k]||0, streak:p.streak_count||0 };
+    });
+  }catch(e){ $('aa-list').innerHTML='<div class="aa-loading" style="color:#e8826a">Fehler beim Laden.</div>'; return; }
+  renderAdminAccounts();
+}
+function renderAdminAccounts(){
+  var box=$('aa-list'); if(!box||!_adminAccounts)return;
+  var q=(($('aa-search')&&$('aa-search').value)||'').trim().toLowerCase().replace(/^#/,'');
+  var list=_adminAccounts.filter(function(a){
+    if(!q)return true;
+    return (a.name&&a.name.toLowerCase().indexOf(q)>=0)||(a.real&&a.real.toLowerCase().indexOf(q)>=0)||(a.num!=null&&String(a.num).indexOf(q)===0);
+  });
+  var cnt=$('aa-count'); if(cnt)cnt.textContent=q?(list.length+' / '+_adminAccounts.length):_adminAccounts.length;
+  if(!list.length){box.innerHTML='<div class="aa-loading">Keine Treffer.</div>';return;}
+  box.innerHTML=list.map(function(a){
+    var initial=escHtml((a.name||'?').charAt(0).toUpperCase());
+    var av=a.avatar?'<span class="aa-av has" style="background-image:url(\''+escHtml(a.avatar)+'\')"></span>':'<span class="aa-av">'+initial+'</span>';
+    var joined=a.created?new Date(a.created).toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+    var realLine=a.real?'<span class="aa-real">'+escHtml(a.real)+'</span>':'';
+    return '<div class="aa-row">'+
+      '<span class="aa-num">#'+(a.num!=null?a.num:'—')+'</span>'+av+
+      '<div class="aa-meta"><div class="aa-name">'+escHtml(a.name)+realLine+'</div>'+
+        '<div class="aa-sub">🏆 '+fmtN(a.best)+' · 🎮 '+a.games+' · 🔥 '+a.streak+' · seit '+joined+'</div></div>'+
+      '<button class="aa-open" onclick="aaProfile(\''+escHtml(a.name)+'\')">Profil →</button>'+
+    '</div>';
+  }).join('');
+}
+function aaProfile(name){ closeModal('admin-accounts-modal'); closeModal('lb-modal'); if(typeof openProfile==='function')openProfile(name); }
+
 // ── Gesamtpunkte-Zähler (Startseite, alle 10s) + Details/Meilenstein ──
 var _tpVal=0,_tpAnim=null,_tpStats=null;
 async function loadTotalPoints(){
@@ -1453,13 +1496,40 @@ async function loadTotalPoints(){
     if($('total-points-modal')&&$('total-points-modal').classList.contains('open'))renderTotalPointsModal();
   }catch(e){}
 }
+
+// ── Live-Feed: letzte Beiträge zum Gesamtzähler (wer, wie viel, wann) ──
+var _tpFeedSeen={};
+function tpfRelTime(d){
+  var s=Math.floor((Date.now()-new Date(d).getTime())/1000);
+  if(s<45)return 'gerade eben';
+  var m=Math.floor(s/60); if(m<1)return 'vor <1min';
+  if(m<60)return 'vor '+m+'min';
+  var h=Math.floor(m/60); if(h<24)return 'vor '+h+'h';
+  var dd=Math.floor(h/24); return 'vor '+dd+'d';
+}
+async function loadTotalFeed(){
+  var box=$('total-points-feed'); if(!box)return;
+  var rows;
+  try{ rows=await sbFetch('wels_scores?select=name,score,created_at&order=created_at.desc&limit=7'); }catch(e){ return; }
+  if(!rows||!rows.length){box.innerHTML='';return;}
+  box.innerHTML='';
+  rows.forEach(function(r){
+    var key=(r.name||'?')+'|'+r.created_at;
+    var isNew=!_tpFeedSeen[key]; _tpFeedSeen[key]=1;
+    var row=document.createElement('div');
+    row.className='tpf-row'+(isNew?' tpf-new':'');
+    row.innerHTML='<span class="tpf-name">'+escHtml(r.name||'?')+'</span><span class="tpf-pts">+'+fmtN(parseInt(r.score,10)||0)+'</span><span class="tpf-time">('+tpfRelTime(r.created_at)+')</span>';
+    box.appendChild(row);
+  });
+  var keys=Object.keys(_tpFeedSeen); if(keys.length>60)keys.slice(0,keys.length-60).forEach(function(k){delete _tpFeedSeen[k];});
+}
 function renderMilestoneLine(){
   var ml=$('total-points-milestone'); if(!ml)return;
   var m=parseInt((_tpStats&&_tpStats.milestone)||'',10)||0;
   if(m>0){ var pct=Math.min(100,Math.round(_tpVal/m*100)); ml.style.display=''; ml.textContent='🎯 Meilenstein '+fmtN(m)+' · '+pct+'%'; }
   else ml.style.display='none';
 }
-function openTotalPointsDetails(){ openModal('total-points-modal'); renderTotalPointsModal(); loadTotalPoints(); }
+function openTotalPointsDetails(){ openModal('total-points-modal'); renderTotalPointsModal(); loadTotalPoints(); loadTotalFeed(); }
 function renderTotalPointsModal(){
   var s=_tpStats||{};
   var total=parseInt(s.total,10)||0, today=parseInt(s.today,10)||0;
@@ -1541,38 +1611,44 @@ async function loadLeaderboardData(){
     var path='wels_scores?select=id,name,score,created_at';
     if(S.leaderboardTab==='week') path+='&created_at=gte.'+getWeekStartKeyVienna()+'T00:00:00';
     else if(S.leaderboardTab==='month'){var p=getViennaParts();path+='&created_at=gte.'+p.year+'-'+String(p.month).padStart(2,'0')+'-01T00:00:00';}
-    path+='&order=score.desc&limit=200';
+    path+='&order=score.desc&limit=10000';   // alle Einträge holen, nicht nur Top 200
     var rows=await sbFetch(path);
-    if(!rows||rows.length===0){$('lb-list').innerHTML='<div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Noch keine Einträge.</div>';return;}
-    $('lb-list').innerHTML='';
+    rows=rows||[];
     lbAdminMode?$('lb-list').classList.add('admin-mode'):$('lb-list').classList.remove('admin-mode');
+    var _accBtn=$('lb-accounts-btn'); if(_accBtn)_accBtn.style.display=lbAdminMode?'':'none';
     var playerBest={},playerAll={};
     rows.forEach(function(r){
       if(!r.name)return;var key=r.name.toLowerCase();
       if(!playerBest[key]){playerBest[key]=r;playerAll[key]=[];}
       playerAll[key].push(r);if(r.score>playerBest[key].score)playerBest[key]=r;
     });
-    // Fetch real names + Avatare for all players
-    var playerRealNames={},playerAvatars={};
+    // Realnamen + Avatare ALLER Spieler in einem Request (deckt auch 0-Punkte-Accounts ab)
+    var playerRealNames={},playerAvatars={},allPlayers=[];
     try{
-      var uniqueNames=Object.keys(playerBest).map(function(k){return playerBest[k].name;});
-      var nameList=uniqueNames.map(function(n){return '"'+n+'"';}).join(',');
-      var playerInfoRows=await sbFetch('players?select=name,vorname,nachname,avatar_url&name=in.('+nameList+')');
-      if(playerInfoRows)playerInfoRows.forEach(function(p){
-        if(p.vorname)playerRealNames[p.name.toLowerCase()]=p.vorname+(p.nachname?' '+p.nachname:'');
-        if(p.avatar_url)playerAvatars[p.name.toLowerCase()]=p.avatar_url;
+      allPlayers=await sbFetch('players?select=name,vorname,nachname,avatar_url&limit=10000')||[];
+      allPlayers.forEach(function(p){
+        if(!p.name)return;var k=p.name.toLowerCase();
+        if(p.vorname)playerRealNames[k]=p.vorname+(p.nachname?' '+p.nachname:'');
+        if(p.avatar_url)playerAvatars[k]=p.avatar_url;
       });
     }catch(e){}
+    // Admin: auch Accounts ohne Einträge zeigen (0 Punkte)
+    if(lbAdminMode){
+      allPlayers.forEach(function(p){
+        if(!p.name)return;var k=p.name.toLowerCase();
+        if(!playerBest[k]){playerBest[k]={name:p.name,score:0,created_at:null,_noEntry:true};playerAll[k]=[];}
+      });
+    }
     var players=Object.keys(playerBest).map(function(k){return playerBest[k];});
-    if(S.lbSort==='date')players.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
+    if(S.lbSort==='date')players.sort(function(a,b){return new Date(b.created_at||0)-new Date(a.created_at||0);});
     else players.sort(function(a,b){return b.score-a.score;});
-    players=players.slice(0,50);
     if(!players.length){$('lb-list').innerHTML='<div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Noch keine Einträge.</div>';return;}
+    $('lb-list').innerHTML='';
     var medals=['🥇','🥈','🥉'];
     players.forEach(function(r,i){
       var nameKey=r.name.toLowerCase(),allScores=playerAll[nameKey]||[];
       var rankLabel=(S.lbSort==='pts'&&i<3)?'<span class="lb-rank gold">'+medals[i]+'</span>':'<span class="lb-rank">'+(i+1)+'</span>';
-      var d=new Date(r.created_at),date=fmtDate(d),timeStr=d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'});
+      var d=r.created_at?new Date(r.created_at):null,date=d?fmtDate(d):'—',timeStr=d?d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'}):'';
       var multiHint=allScores.length>1?' <span style="font-size:.55rem;color:var(--mist);">('+allScores.length+')</span>':'';
       var realName=playerRealNames[nameKey]||'';
       var nameAttr=realName?' data-realname="'+escHtml(realName)+'"':'';
@@ -1611,9 +1687,11 @@ async function loadLeaderboardData(){
         var addBtn=document.createElement('button');addBtn.className='lb-add-entry';addBtn.textContent='+';
         addBtn.onclick=(function(n){return function(e){e.stopPropagation();openAdminAddEntry(n);};})(rn);
         rowEl.appendChild(addBtn);
-        var delBtn=document.createElement('button');delBtn.className='lb-del';delBtn.textContent='✕';delBtn.setAttribute('data-id',r.id);
-        delBtn.onclick=function(e){e.stopPropagation();deleteLbEntry(this.getAttribute('data-id'),this.parentElement);};
-        rowEl.appendChild(delBtn);
+        if(!r._noEntry){
+          var delBtn=document.createElement('button');delBtn.className='lb-del';delBtn.textContent='✕';delBtn.setAttribute('data-id',r.id);
+          delBtn.onclick=function(e){e.stopPropagation();deleteLbEntry(this.getAttribute('data-id'),this.parentElement);};
+          rowEl.appendChild(delBtn);
+        }
       }
       var subList=document.createElement('div');subList.className='lb-player-scores';
       if(lbExpandedNames[nameKey])subList.classList.add('open');
@@ -1638,7 +1716,7 @@ async function loadLeaderboardData(){
       }
       $('lb-list').appendChild(rowEl);
       $('lb-list').appendChild(subList);
-      setTimeout(function(){rowEl.classList.add('in');},i*45);
+      setTimeout(function(){rowEl.classList.add('in');},Math.min(i,18)*40);
     });
   }catch(e){$('lb-list').innerHTML='<div style="font-size:.7rem;color:#e8826a;text-align:center;padding:1rem">Fehler beim Laden.</div>';console.error('Leaderboard error:',e);}
 }
@@ -2877,11 +2955,52 @@ window.addEventListener('load',function(){
   setDailyInfo();getOrCreateDeviceId();refreshAuthUI();checkDeepLink();cleanupStaleRooms();loadDailyBoard();loadDailyChampions();updateDailyPlayAvailability();startDailyTimers();
   loadTotalPoints(); setInterval(loadTotalPoints,10000);
   loadMotd();
+  loadChangelogBoard();
   setTimeout(checkNamePromptNeeded,1500);
 });
 
 // ── Changelog ──
 var changelogCache=null;
+var CHANGELOG_SEEN_KEY='wg_changelog_seen';
+function getChangelogSeen(){ try{return localStorage.getItem(CHANGELOG_SEEN_KEY)||'';}catch(e){return '';} }
+function setChangelogSeen(id){ try{localStorage.setItem(CHANGELOG_SEEN_KEY,String(id));}catch(e){} }
+function newestChangelogId(entries){ return (entries&&entries.length)?String(entries[0].id):''; }
+function changelogHasNew(entries){ return !!(entries&&entries.length)&&newestChangelogId(entries)!==getChangelogSeen(); }
+function changelogSeenIndex(entries){
+  var seen=getChangelogSeen(); if(!seen)return -1;
+  for(var i=0;i<entries.length;i++){ if(String(entries[i].id)===seen)return i; }
+  return -1;
+}
+// Roter Hinweis am 📰-Button (mobil) + NEU-Badge am Board (PC)
+function updateChangelogNotif(entries){
+  var has=changelogHasNew(entries);
+  var btn=$('changelog-icon-btn'); if(btn)btn.classList.toggle('has-notif',has);
+  var badge=$('cl-board-badge'); if(badge)badge.style.display=has?'':'none';
+}
+// Vorschau der letzten Updates im rechten Board (PC); neue Einträge hervorgehoben
+function renderChangelogBoard(entries){
+  var list=$('cl-board-list'); if(!list)return;
+  if(!entries||!entries.length){ list.innerHTML='<div class="motd-text empty">Noch keine Updates.</div>'; return; }
+  var seen=getChangelogSeen(), seenIdx=changelogSeenIndex(entries);
+  list.innerHTML=entries.slice(0,3).map(function(e,i){
+    var isNew = seen ? (seenIdx===-1 ? i===0 : i<seenIdx) : i===0;
+    var icon=e.icon||'📋';
+    var dateStr=e.date?new Date(e.date).toLocaleDateString('de-AT',{day:'2-digit',month:'short',year:'numeric'}):'';
+    var ver=e.version?(' · '+escHtml(e.version)):'';
+    return '<div class="cl-board-item'+(isNew?' cl-new':'')+'">'+
+        '<span class="cl-board-ico">'+icon+'</span>'+
+        '<div class="cl-board-meta">'+
+          '<div class="cl-board-title">'+escHtml(e.title||'Update')+(isNew?'<span class="cl-new-dot"></span>':'')+'</div>'+
+          '<div class="cl-board-date">'+dateStr+ver+'</div>'+
+        '</div>'+
+      '</div>';
+  }).join('');
+}
+async function loadChangelogBoard(){
+  var entries=await loadChangelogEntries();
+  renderChangelogBoard(entries);
+  updateChangelogNotif(entries);
+}
 
 async function loadChangelogEntries(){
   if(changelogCache)return changelogCache;
@@ -2919,6 +3038,9 @@ async function openChangelog(){
   $('changelog-admin-bar').style.display=lbAdminMode?'flex':'none';openModal('changelog-modal');
   $('changelog-list').innerHTML='<div style="font-size:.7rem;color:var(--mist);text-align:center;padding:2rem">Lade…</div>';
   var entries=await loadChangelogEntries();renderChangelogList(entries);
+  // alles gesehen → Benachrichtigung (Button-Punkt + Board-Badge + Hervorhebung) entfernen
+  if(entries&&entries.length)setChangelogSeen(newestChangelogId(entries));
+  updateChangelogNotif(entries);renderChangelogBoard(entries);
 }
 
 function openChangelogEditor(id){

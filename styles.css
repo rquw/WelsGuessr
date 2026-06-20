@@ -144,9 +144,13 @@ body::before{
 
 .footer-made{position:absolute;left:50%;bottom:1.2rem;transform:translateX(-50%);font-size:.62rem;letter-spacing:.09em;color:rgba(143,168,154,.55);border:1px solid rgba(143,168,154,.2);background:rgba(0,0,0,.2);padding:.4rem 1rem;border-radius:20px;pointer-events:none;white-space:nowrap;z-index:5}
 
-/* ── Nachricht des Tages (Startseite, links) ── */
-#motd-board{position:absolute;left:1.6rem;top:50%;transform:translateY(-50%);width:248px;max-width:30vw;z-index:5;background:linear-gradient(165deg,rgba(20,40,28,.82),rgba(10,20,14,.86));border:1px solid rgba(201,168,76,.32);border-radius:16px;padding:1rem 1.05rem;box-shadow:0 18px 50px rgba(0,0,0,.4),inset 0 0 30px rgba(201,168,76,.05);backdrop-filter:blur(8px);text-align:left;animation:motdIn .6s cubic-bezier(.16,1,.3,1) both .35s}
-@keyframes motdIn{from{opacity:0;transform:translateY(-50%) translateX(-14px)}to{opacity:1;transform:translateY(-50%) translateX(0)}}
+/* ── Seitliche Boards (Nachricht des Tages links, Was ist neu rechts) — nur PC ── */
+.side-board{position:absolute;top:50%;transform:translateY(-50%);width:268px;max-width:23vw;z-index:5;background:linear-gradient(165deg,rgba(20,40,28,.82),rgba(10,20,14,.86));border:1px solid rgba(201,168,76,.32);border-radius:16px;padding:1rem 1.05rem;box-shadow:0 18px 50px rgba(0,0,0,.4),inset 0 0 30px rgba(201,168,76,.05);backdrop-filter:blur(8px);text-align:left}
+#motd-board{left:1.6rem;animation:sideBoardInL .6s cubic-bezier(.16,1,.3,1) both .35s}
+#changelog-board{right:1.6rem;cursor:pointer;animation:sideBoardInR .6s cubic-bezier(.16,1,.3,1) both .35s;transition:border-color .2s,box-shadow .2s}
+#changelog-board:hover{border-color:rgba(201,168,76,.55);box-shadow:0 22px 60px rgba(0,0,0,.5),inset 0 0 30px rgba(201,168,76,.08)}
+@keyframes sideBoardInL{from{opacity:0;transform:translateY(-50%) translateX(-14px)}to{opacity:1;transform:translateY(-50%) translateX(0)}}
+@keyframes sideBoardInR{from{opacity:0;transform:translateY(-50%) translateX(14px)}to{opacity:1;transform:translateY(-50%) translateX(0)}}
 .motd-head{display:flex;flex-direction:column;gap:.15rem;margin-bottom:.55rem;padding-bottom:.5rem;border-bottom:1px solid rgba(201,168,76,.18)}
 .motd-title{font-family:'DM Mono',monospace;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-light)}
 .motd-date{font-size:.62rem;color:var(--mist);text-transform:capitalize}
@@ -156,9 +160,25 @@ body::before{
 .motd-input{width:100%;resize:vertical;min-height:3.4rem;font-family:inherit;font-size:.75rem;line-height:1.45;color:var(--cream);background:rgba(0,0,0,.28);border:1px solid rgba(201,168,76,.3);border-radius:10px;padding:.55rem .6rem}
 .motd-input:focus{outline:none;border-color:var(--gold)}
 #motd-save-btn{font-size:.72rem;padding:.55rem 1rem}
-@media(max-width:920px){
-  #motd-board{position:static;transform:none;order:-1;width:min(360px,88vw);max-width:88vw;margin:0 auto .4rem;animation:none}
-}
+/* Changelog-Board: Liste der letzten Updates */
+.cl-board-list{display:flex;flex-direction:column;gap:.55rem}
+.cl-board-item{display:flex;gap:.5rem;align-items:flex-start}
+.cl-board-ico{font-size:.95rem;flex-shrink:0;line-height:1.35}
+.cl-board-meta{min-width:0;flex:1}
+.cl-board-title{font-size:.77rem;color:var(--cream);font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-board-date{font-size:.58rem;color:var(--mist);margin-top:.05rem}
+.cl-board-item.cl-new .cl-board-title{color:var(--gold-light)}
+.cl-new-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#e8503a;margin-left:.35rem;vertical-align:middle;box-shadow:0 0 7px rgba(232,80,58,.75);animation:notifPulseDot 1.5s ease-in-out infinite}
+@keyframes notifPulseDot{0%,100%{opacity:1}50%{opacity:.45}}
+.cl-board-more{margin-top:.7rem;padding-top:.55rem;border-top:1px solid rgba(201,168,76,.18);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.08em;color:var(--gold-light);text-align:right}
+.cl-board-badge{font-family:'DM Mono',monospace;font-size:.5rem;letter-spacing:.12em;color:#fff;background:#e8503a;border-radius:6px;padding:.1rem .32rem;margin-left:.35rem;vertical-align:middle;animation:clBadgePulse 1.5s ease-in-out infinite}
+@keyframes clBadgePulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* Roter Benachrichtigungs-Punkt am 📰-Button (Mobil) */
+.start-icon-btn.has-notif::before{content:'';position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#e8503a;border:2px solid var(--pine,#16271c);box-shadow:0 0 0 0 rgba(232,80,58,.55);animation:notifPulseRing 1.6s ease-out infinite;z-index:21}
+@keyframes notifPulseRing{0%{box-shadow:0 0 0 0 rgba(232,80,58,.55)}70%{box-shadow:0 0 0 9px rgba(232,80,58,0)}100%{box-shadow:0 0 0 0 rgba(232,80,58,0)}}
+/* Sichtbarkeit: Boards nur auf breiten Screens (Laptop/PC); 📰-Button nur sonst */
+@media(max-width:1079px){ .side-board{display:none} }
+@media(min-width:1080px){ #changelog-icon-btn{display:none} }
 .kofi-btn{display:block;width:100%;font-family:'DM Mono',monospace;font-size:.72rem;font-weight:500;letter-spacing:.06em;text-align:center;text-decoration:none;color:rgba(74,140,98,.9);background:rgba(74,140,98,.08);border:1.5px solid rgba(74,140,98,.25);border-radius:14px;padding:.7rem 1rem;transition:background .2s,border-color .2s,color .2s;cursor:pointer}
 .kofi-btn:hover{background:rgba(74,140,98,.15);border-color:rgba(74,140,98,.5);color:#6bbf85}
 
@@ -277,6 +297,21 @@ body::before{
 .lb-row{display:flex;align-items:center;gap:.75rem;padding:.8rem .9rem;border-radius:12px;background:rgba(255,255,255,.04);font-size:.77rem;transform:translateX(-10px);opacity:0;transition:transform .35s cubic-bezier(.16,1,.3,1),opacity .35s ease,background .15s;cursor:pointer;border:1px solid transparent}
 .lb-row:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.08)}
 .lb-row.in{transform:translateX(0);opacity:1}
+/* ── Admin Accounts-Übersicht ── */
+.aa-count{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--mist);font-weight:400;letter-spacing:.05em}
+#admin-accounts-inner{width:min(440px,94vw)}
+.aa-list{display:flex;flex-direction:column;gap:.35rem;max-height:60vh;overflow-y:auto;margin-top:.6rem}
+.aa-loading{font-size:.7rem;color:var(--mist);text-align:center;padding:1.4rem}
+.aa-row{display:flex;align-items:center;gap:.6rem;padding:.5rem .6rem;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.05)}
+.aa-num{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--mist);min-width:2.4rem;text-align:right;flex-shrink:0}
+.aa-av{width:1.9rem;height:1.9rem;border-radius:50%;flex-shrink:0;background:rgba(201,168,76,.18);background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:var(--gold-light);border:1px solid rgba(255,255,255,.12)}
+.aa-av.has{color:transparent}
+.aa-meta{flex:1;min-width:0}
+.aa-name{font-size:.82rem;color:var(--cream);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aa-real{font-size:.62rem;color:var(--mist);margin-left:.4rem;font-weight:400}
+.aa-sub{font-size:.58rem;color:var(--mist);margin-top:.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aa-open{flex-shrink:0;background:none;border:1px solid rgba(201,168,76,.4);color:var(--gold-light);font-family:'DM Mono',monospace;font-size:.6rem;border-radius:8px;padding:.35rem .6rem;cursor:pointer;transition:.15s}
+.aa-open:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.1)}
 .lb-rank{width:1.6rem;text-align:right;color:var(--mist);font-size:.65rem;flex-shrink:0}
 .lb-rank.gold{color:var(--gold);font-size:.9rem}
 .lb-avatar{width:1.9rem;height:1.9rem;border-radius:50%;flex-shrink:0;background:rgba(201,168,76,.18);background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:var(--gold-light);border:1px solid rgba(255,255,255,.12)}
@@ -1374,6 +1409,18 @@ body::before{
 /* ── Gesamtpunkte-Details ── */
 #total-points-wrap{cursor:pointer}
 #total-points-milestone{font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-light);margin-top:.3rem}
+
+/* ── Beiträge-Feed (im Gesamtpunkte-Detail-Popup) ── */
+.tpd-feed-label{font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mist);text-align:center;margin:.6rem 0 .35rem}
+.tpd-feed-label:has(+ #total-points-feed:empty){display:none}
+#total-points-feed{display:flex;flex-direction:column;gap:.25rem;width:100%}
+#total-points-feed:empty{display:none}
+.tpf-row{display:flex;align-items:baseline;justify-content:center;gap:.4rem;font-family:'DM Mono',monospace;font-size:.62rem;line-height:1.3;color:var(--cream-dark);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:8px;padding:.22rem .5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tpf-row .tpf-name{color:var(--gold-light);font-weight:500;overflow:hidden;text-overflow:ellipsis;max-width:9rem}
+.tpf-row .tpf-pts{color:var(--gold)}
+.tpf-row .tpf-time{color:var(--mist);font-size:.56rem}
+.tpf-row.tpf-new{animation:tpfIn .5s cubic-bezier(.16,1,.3,1) both}
+@keyframes tpfIn{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 .tpd-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:.5rem 0}
 .tpd-stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:.7rem;text-align:center}
 .tpd-num{font-family:'Playfair Display',serif;font-size:clamp(1.2rem,5vw,1.8rem);font-weight:900;color:var(--gold)}

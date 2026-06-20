@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Bestenlisten-Rang (bester Score je Spieler)
       var rank = null;
       try {
-        var allRows = await sbFetch(SITE.scores + '?select=name,score&order=score.desc&limit=1000');
+        var allRows = await sbFetch(SITE.scores + '?select=name,score&order=score.desc&limit=10000');
         var bestByName = {};
         (allRows || []).forEach(function(r) {
           if (!r.name) return; var k = r.name.toLowerCase();
