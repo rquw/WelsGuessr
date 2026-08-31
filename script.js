@@ -384,6 +384,38 @@ function getDailyLocationImage(){
 // ── Helpers ──
 var $=function(id){return document.getElementById(id);};
 
+// ── Eigene Icons (gefüllte SVGs statt Emojis, für UI-Elemente) ──
+var ICON_PATHS={
+  profile:'M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-5.33 0-9 2.67-9 5.5V22h18v-2.5c0-2.83-3.67-5.5-9-5.5Z',
+  globe:'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93C7.06 19.44 4 16.08 4 12c0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41C19.92 5.77 22 8.65 22 12c0 2.08-.8 3.97-2.1 5.39Z',
+  news:'M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2Zm0 16H4V5h16v14ZM6 7h5v6H6V7Zm7 0h5v2h-5V7Zm0 4h5v2h-5v-2ZM6 15h12v2H6v-2Z',
+  pin:'M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3Z',
+  trophy:'M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 15.9V19H7v2h10v-2h-4v-3.1a5.01 5.01 0 0 0 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2ZM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8Zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1Z',
+  medal:'M17 10.43V2H7v8.43c0 .35.18.68.49.86l4.18 2.51-.98 2.34-3.41.29 2.59 2.24L9.07 22 12 20.23 14.93 22l-.8-3.53 2.59-2.24-3.41-.29-.98-2.34 4.18-2.51c.31-.18.49-.51.49-.86ZM13 12.6l-1 .6-1-.6V3h2v9.6Z',
+  group:'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3Zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5Zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z',
+  edit:'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z',
+  trash:'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z',
+  close:'M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.38.38-1.02 0-1.4Z',
+  calendar:'M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2Zm0 18H4V8h16v13Z',
+  share:'M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81A3 3 0 1 0 6 15c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92Z',
+  star:'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27Z',
+  timer:'M15 1H9v2h6V1Zm-4 13h2V8h-2v6Zm8.03-6.61 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61ZM12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z',
+  camera:'M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4ZM9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9Z'
+};
+function icon(name,cls){
+  var d=ICON_PATHS[name]; if(!d)return '';
+  return '<svg class="ico'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="'+d+'"/></svg>';
+}
+// ersetzt alle <… data-icon="name"> im DOM durch das SVG
+function hydrateIcons(root){
+  (root||document).querySelectorAll('[data-icon]').forEach(function(el){
+    var n=el.getAttribute('data-icon'); if(!n)return;
+    el.innerHTML=icon(n,el.getAttribute('data-icon-cls')||''); el.removeAttribute('data-icon');
+  });
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){hydrateIcons();});
+else hydrateIcons();
+
 function show(id){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active','visible');});
   var el=$(id); el.classList.add('active');
@@ -902,7 +934,7 @@ function startBlitzClock(){
   var tEl=$('mp-timer'); if(tEl)tEl.style.display='block';
   S._blitzClock=setInterval(function(){
     var left=Math.ceil((S.blitzEndAt-Date.now())/1000);
-    var e=$('mp-timer'); if(e){e.textContent='⏱ '+Math.max(0,left)+'s'; e.classList.toggle('mp-timer-urgent',left<=5&&left>0);}
+    var e=$('mp-timer'); if(e){e.innerHTML=icon('timer')+' '+Math.max(0,left)+'s'; e.classList.toggle('mp-timer-urgent',left<=5&&left>0);}
     if(left<=0)blitzEnd();
   },200);
 }
@@ -1723,7 +1755,7 @@ async function loadLeaderboardData(force){
     else players.sort(function(a,b){return b.score-a.score;});
     if(!players.length){$('lb-list').innerHTML='<div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Noch keine Einträge.</div>';return;}
     $('lb-list').innerHTML='';
-    var medals=['🥇','🥈','🥉'];
+    var medals=[icon('medal','rank-gold'),icon('medal','rank-silver'),icon('medal','rank-bronze')];
     players.forEach(function(r,i){
       var nameKey=r.name.toLowerCase(),allScores=playerAll[nameKey]||[];
       var rankLabel=(S.lbSort==='pts'&&i<3)?'<span class="lb-rank gold">'+medals[i]+'</span>':'<span class="lb-rank">'+(i+1)+'</span>';
@@ -1760,14 +1792,14 @@ async function loadLeaderboardData(force){
       }
       if(lbAdminMode){
         var rn=r.name;
-        var renameBtn=document.createElement('button');renameBtn.className='lb-rename';renameBtn.textContent='✏️';
+        var renameBtn=document.createElement('button');renameBtn.className='lb-rename';renameBtn.innerHTML=icon('edit');
         renameBtn.onclick=(function(n){return function(e){e.stopPropagation();openAdminEditPlayer(n);};})(rn);
         rowEl.appendChild(renameBtn);
         var addBtn=document.createElement('button');addBtn.className='lb-add-entry';addBtn.textContent='+';
         addBtn.onclick=(function(n){return function(e){e.stopPropagation();openAdminAddEntry(n);};})(rn);
         rowEl.appendChild(addBtn);
         if(!r._noEntry){
-          var delBtn=document.createElement('button');delBtn.className='lb-del';delBtn.textContent='✕';delBtn.setAttribute('data-id',r.id);
+          var delBtn=document.createElement('button');delBtn.className='lb-del';delBtn.innerHTML=icon('trash');delBtn.setAttribute('data-id',r.id);
           delBtn.onclick=function(e){e.stopPropagation();deleteLbEntry(this.getAttribute('data-id'),this.parentElement);};
           rowEl.appendChild(delBtn);
         }
@@ -1811,7 +1843,7 @@ function renderSubScores(container,scores,sortMode){
     var sub=document.createElement('div');sub.className='lb-sub-score';
     sub.innerHTML='<span>'+sdate+' '+stime+'</span><span>'+fmtN(sc.score)+'</span><button class="lb-profile-btn" onclick="event.stopPropagation();openProfile(\''+escHtml(sc.name||'')+'\')">👤</button>';
     if(lbAdminMode){
-      var delSubBtn=document.createElement('button');delSubBtn.className='lb-del lb-del-sub';delSubBtn.textContent='\u2715';delSubBtn.setAttribute('data-id',sc.id);
+      var delSubBtn=document.createElement('button');delSubBtn.className='lb-del lb-del-sub';delSubBtn.innerHTML=icon('trash');delSubBtn.setAttribute('data-id',sc.id);
       delSubBtn.onclick=function(e){e.stopPropagation();deleteLbEntry(this.getAttribute('data-id'),this.closest('.lb-sub-score'),true);};
       sub.appendChild(delSubBtn);
     }
@@ -2090,7 +2122,7 @@ async function loadDailyChampions(){
     // Podium: rows[0]=1.Platz(Gold), rows[1]=2.Platz(Silber), rows[2]=3.Platz(Bronze)
     // Anzeige-Reihenfolge: Silber links, Gold mitte, Bronze rechts
     var podiumOrder=rows.length>=3?[rows[1],rows[0],rows[2]]:rows.length===2?[rows[1],rows[0]]:[rows[0]];
-    var medals=['🥇','🥈','🥉'];
+    var medals=[icon('medal','rank-gold'),icon('medal','rank-silver'),icon('medal','rank-bronze')];
     // Gold=index 0, Silber=index 1, Bronze=index 2
     var podiumColors=['#FFD700','#C0C0C0','#CD7F32'];
     var podiumGlow=['rgba(255,215,0,.55)','rgba(192,192,192,.45)','rgba(205,127,50,.45)'];
@@ -2129,7 +2161,7 @@ async function loadDailyBoard(){
     if(!rows||!rows.length){boardEl.innerHTML='<div style="font-size:.72rem;color:var(--mist);text-align:center;padding:1.2rem">Heute noch keine Einträge.</div>';return;}
     var dav={};
     try{ var dnl=rows.map(function(r){return '"'+r.name+'"';}).join(','); var dprows=await sbFetch('players?select=name,avatar_url&name=in.('+dnl+')'); if(dprows)dprows.forEach(function(p){if(p.avatar_url)dav[p.name.toLowerCase()]=p.avatar_url;}); }catch(e){}
-    var medals=['🥇','🥈','🥉'];
+    var medals=[icon('medal','rank-gold'),icon('medal','rank-silver'),icon('medal','rank-bronze')];
     rows.forEach(function(r,i){
       try{
         var div=document.createElement('div');div.className='lb-row';
@@ -2415,7 +2447,7 @@ function renderLobby(room,players){
   if(list){
     list.innerHTML=online.length?online.map(function(p){
       var you=p.player_id===S.playerId,ph=p.player_id===room.host_id;
-      var kick=(S.vsIsHost&&!ph)?'<button class="mp-kick-btn" onclick="kickPlayer(\''+p.player_id+'\')" title="Entfernen">✕</button>':'';
+      var kick=(S.vsIsHost&&!ph)?'<button class="mp-kick-btn" onclick="kickPlayer(\''+p.player_id+'\')" title="Entfernen">'+icon('close')+'</button>':'';
       var dot=(you&&!p.ready)
         ? '<span class="mp-player-dot clickable" onclick="toggleReady()" title="Klicken = bereit"></span>'
         : '<span class="mp-player-dot'+(p.ready?' ready':'')+'"></span>';
@@ -2686,7 +2718,7 @@ function mpStartRoundClock(){
   S._mpClock=setInterval(function(){
     if(!$('game-screen').classList.contains('active'))return;
     var left=Math.ceil(mod.timeLimit-(Date.now()-(S.mpRoundStartedAt||Date.now()))/1000);
-    if(timerEl){timerEl.textContent='⏱ '+Math.max(0,left)+'s';timerEl.classList.toggle('mp-timer-urgent',left<=5&&left>0);}
+    if(timerEl){timerEl.innerHTML=icon('timer')+' '+Math.max(0,left)+'s';timerEl.classList.toggle('mp-timer-urgent',left<=5&&left>0);}
     if(left<=0){ mpClearRoundClock(); if(timerEl)timerEl.classList.remove('mp-timer-urgent'); if($('game-screen').classList.contains('active')){ if(!S.guessLatLng)S.guessLatLng={lat:CENTER[0],lng:CENTER[1]}; mpShowTimeUp(); submitGuess(); } }
   },250);
 }
@@ -2919,8 +2951,8 @@ function showMpStandings(sorted,placement){
   var box=$('vs-result-box');if(box)box.classList.remove('show');
   var el=$('mp-final-standings');if(!el)return;
   el.style.display='block';
-  var medals=['🥇','🥈','🥉'];
-  var head='<div class="mp-standings-place">Du wurdest '+placement+'. von '+sorted.length+(placement===1?' 🏆':'')+'</div>';
+  var medals=[icon('medal','rank-gold'),icon('medal','rank-silver'),icon('medal','rank-bronze')];
+  var head='<div class="mp-standings-place">Du wurdest '+placement+'. von '+sorted.length+(placement===1?' '+icon('trophy','ico-gold'):'')+'</div>';
   var listHtml=sorted.map(function(p,i){
     var you=p.player_id===S.playerId;
     return '<div class="mp-standings-row'+(you?' me':'')+(i===0?' first':'')+'">'+
@@ -3070,11 +3102,11 @@ function renderChangelogBoard(entries){
   var seen=getChangelogSeen(), seenIdx=changelogSeenIndex(entries);
   list.innerHTML=entries.slice(0,3).map(function(e,i){
     var isNew = seen ? (seenIdx===-1 ? i===0 : i<seenIdx) : i===0;
-    var icon=e.icon||'📋';
+    var entryIcon=e.icon||'📋';
     var dateStr=e.date?new Date(e.date).toLocaleDateString('de-AT',{day:'2-digit',month:'short',year:'numeric'}):'';
     var ver=e.version?(' · '+escHtml(e.version)):'';
     return '<div class="cl-board-item'+(isNew?' cl-new':'')+'">'+
-        '<span class="cl-board-ico">'+icon+'</span>'+
+        '<span class="cl-board-ico">'+entryIcon+'</span>'+
         '<div class="cl-board-meta">'+
           '<div class="cl-board-title">'+escHtml(e.title||'Update')+(isNew?'<span class="cl-new-dot"></span>':'')+'</div>'+
           '<div class="cl-board-date">'+dateStr+ver+'</div>'+
@@ -3098,14 +3130,14 @@ function renderChangelogList(entries){
   var list=$('changelog-list');
   if(!entries||!entries.length){list.innerHTML='<div style="font-size:.7rem;color:var(--mist);text-align:center;padding:2rem">Noch keine Updates eingetragen.</div>';return;}
   list.innerHTML=entries.map(function(e){
-    var icon=e.icon||'📋';
+    var entryIcon=e.icon||'📋';
     var dateStr=e.date?new Date(e.date).toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'}):'';
     var bullets=(e.body||'').split('\n').filter(function(l){return l.trim();}).map(function(l){return '<li>'+escHtml(l.trim())+'</li>';}).join('');
     var imgHtml=e.image?'<img src="'+escHtml(e.image)+'" class="cl-entry-img" onerror="this.style.display=\'none\'">':'';
-    var adminBtns=lbAdminMode?'<div class="cl-admin-btns"><button class="cl-edit-btn" onclick="openChangelogEditor(\''+e.id+'\')">✏️ Edit</button><button class="cl-del-btn" onclick="deleteChangelogEntry(\''+e.id+'\')">🗑 Löschen</button></div>':'';
+    var adminBtns=lbAdminMode?'<div class="cl-admin-btns"><button class="cl-edit-btn" onclick="openChangelogEditor(\''+e.id+'\')">'+icon('edit')+' Edit</button><button class="cl-del-btn" onclick="deleteChangelogEntry(\''+e.id+'\')">'+icon('trash')+' Löschen</button></div>':'';
     return '<div class="cl-entry">'+
       '<div class="cl-entry-head">'+
-        '<span class="cl-entry-icon">'+icon+'</span>'+
+        '<span class="cl-entry-icon">'+entryIcon+'</span>'+
         '<div class="cl-entry-meta">'+
           '<div class="cl-entry-title">'+escHtml(e.title||'Update')+'</div>'+
           '<div class="cl-entry-sub">'+

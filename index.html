@@ -10,17 +10,32 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
 <script>document.title='WelsGuessr';</script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%2316271c'/><text x='12' y='17.5' font-size='15' font-family='Georgia,serif' font-weight='700' text-anchor='middle' fill='%23c9a84c'>W</text></svg>">
+<!-- SEO / Social -->
+<meta name="description" content="WelsGuessr – errate zufällige Orte in Wels auf dem Straßenpanorama. Mit täglicher Challenge, Bestenliste, Mehrspieler-Modus und mehr.">
+<link rel="canonical" href="https://rquw.github.io/WelsGuessr/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="WelsGuessr">
+<meta property="og:title" content="WelsGuessr – Wie gut kennst du Wels?">
+<meta property="og:description" content="Errate zufällige Orte in Wels auf dem Straßenpanorama. Tägliche Challenge, Bestenliste, Mehrspieler und mehr.">
+<meta property="og:url" content="https://rquw.github.io/WelsGuessr/">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/rquw/welsguessr-images@main/Wad82nfT0gYf5ByGSaQewQ_h000.jpg">
+<meta property="og:locale" content="de_AT">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="WelsGuessr – Wie gut kennst du Wels?">
+<meta name="twitter:description" content="Errate zufällige Orte in Wels auf dem Straßenpanorama.">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/rquw/welsguessr-images@main/Wad82nfT0gYf5ByGSaQewQ_h000.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"WelsGuessr","alternateName":"Wels Guessr","url":"https://rquw.github.io/WelsGuessr/","inLanguage":"de-AT","description":"Errate zufällige Orte in Wels auf dem Straßenpanorama. Tägliche Challenge, Bestenliste und Mehrspieler.","author":{"@type":"Person","name":"Fabio"}}</script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=28">
+<link rel="stylesheet" href="styles.css?v=29">
 </head>
 <body>
 <div id="round-flash"></div>
 <div id="dc-notice"></div>
 <div id="round-popup"></div>
 <div id="confetti-layer"></div>
-<div id="new-highscore-banner"><span>🏆 NEUER HIGHSCORE!</span></div>
+<div id="new-highscore-banner"><span><span class="ico" data-icon="trophy"></span> NEUER HIGHSCORE!</span></div>
 <div id="mp-countdown"></div>
 <div class="screen-backdrop" id="screen-backdrop"></div>
 <div id="pano-preloader"><div class="pano-spinner"></div><div class="ppl-text" id="ppl-text">Panoramas werden geladen…</div></div>
@@ -147,7 +162,7 @@
   <div id="streak-display-start" style="display:none"></div>
   <div id="motd-board" class="side-board">
     <div class="motd-head">
-      <span class="motd-title">📌 Nachricht des Tages</span>
+      <span class="motd-title"><span class="ico" data-icon="pin"></span> Nachricht des Tages</span>
       <span class="motd-date" id="motd-date"></span>
     </div>
     <div class="motd-text" id="motd-text">—</div>
@@ -158,7 +173,7 @@
   </div>
   <div id="changelog-board" class="side-board" onclick="openChangelog()" title="Alle Updates ansehen">
     <div class="motd-head">
-      <span class="motd-title">📰 Was ist neu <span class="cl-board-badge" id="cl-board-badge" style="display:none">NEU</span></span>
+      <span class="motd-title"><span class="ico" data-icon="news"></span> Was ist neu <span class="cl-board-badge" id="cl-board-badge" style="display:none">NEU</span></span>
       <span class="motd-date">Update-Protokoll</span>
     </div>
     <div class="cl-board-list" id="cl-board-list"><div class="motd-text empty">Lade…</div></div>
@@ -169,10 +184,10 @@
     <button class="big-btn" onclick="openLeaderboard()">Bestenliste</button>
     <button class="big-btn" onclick="openInfoScreen()">Info</button>
     <div class="start-icon-btns">
-      <button class="start-icon-btn" id="profile-btn" data-label="Profil" onclick="openProfile()" aria-label="Profil öffnen">👤</button>
+      <button class="start-icon-btn" id="profile-btn" data-label="Profil" onclick="openProfile()" aria-label="Profil öffnen"><span class="ico" data-icon="profile"></span></button>
       <a class="start-icon-btn" href="https://ko-fi.com/fabioss" target="_blank" rel="noopener" data-label="Unterstützen">$</a>
       <div class="mehr-guessr-wrap" id="mehr-guessr-wrap">
-        <button class="start-icon-btn mehr-guessr-btn" data-label="Mehr Guessr" onclick="toggleMehrGuessr(event)">🌍</button>
+        <button class="start-icon-btn mehr-guessr-btn" data-label="Mehr Guessr" onclick="toggleMehrGuessr(event)"><span class="ico" data-icon="globe"></span></button>
         <div class="mehr-guessr-dropdown" id="mehr-guessr-dropdown">
           <div class="mehr-guessr-item" onclick="window.location.href='https://rquw.github.io/TernberGuessr'">
             <span class="mehr-guessr-check" style="visibility:hidden">✓</span>TernberGuessr
@@ -185,7 +200,7 @@
           </div>
         </div>
       </div>
-      <button class="start-icon-btn" id="changelog-icon-btn" data-label="Was ist neu?" onclick="openChangelog()" aria-label="Was ist neu?">📰</button>
+      <button class="start-icon-btn" id="changelog-icon-btn" data-label="Was ist neu?" onclick="openChangelog()" aria-label="Was ist neu?"><span class="ico" data-icon="news"></span></button>
     </div>
     <div id="total-points-wrap" onclick="openTotalPointsDetails()" title="Details anzeigen">
       <div id="total-points-num">—</div>
@@ -193,7 +208,7 @@
       <div id="total-points-milestone" style="display:none"></div>
     </div>
   </div>
-  <div class="footer-made">Website mit Liebe von Fabio erstellt.</div>
+  <div class="footer-made">Website mit Liebe von Fabio erstellt. · <a href="datenschutz.html" style="color:inherit;pointer-events:auto;text-decoration:underline">Datenschutz</a></div>
   <button id="auth-btn" class="logged-out" onclick="handleAuthBtn()">Anmelden</button>
 </div>
 
@@ -205,7 +220,7 @@
       <div class="tpd-stat"><div class="tpd-num" id="tpd-total">—</div><div class="tpd-lbl">Insgesamt</div></div>
       <div class="tpd-stat"><div class="tpd-num" id="tpd-today">—</div><div class="tpd-lbl">Heute</div></div>
     </div>
-    <div class="tpd-top-row">🏆 Top-Beitrag: <span id="tpd-top">—</span></div>
+    <div class="tpd-top-row"><span class="ico ico-gold" data-icon="trophy"></span> Top-Beitrag: <span id="tpd-top">—</span></div>
     <div class="tpd-feed-label">Letzte Beiträge</div>
     <div id="total-points-feed" aria-hidden="true"></div>
     <div id="tpd-milestone-wrap" style="display:none">
@@ -228,7 +243,7 @@
 <div class="screen" id="info-screen" style="justify-content:flex-start;overflow-y:auto">
   <div class="info-layout">
     <div class="info-header">
-      <h1>Wels<em>Guessr</em></h1>
+      <h2>Wels<em>Guessr</em></h2>
       <p>Über das Spiel</p>
     </div>
     <div class="info-section">
@@ -250,6 +265,7 @@
       <div class="info-section-title">Hinweise</div>
       <div class="info-section-body">Diese Website hat nichts mit irgendwas Offiziellem zu tun. Bilder/Panoramas sind direkt von der Google Street View API gezogen.</div>
       <div class="info-legal-warn">⚠ Bitte nimm kein Passwort, das du regulär benützt, für einen Account auf dieser Website.</div>
+      <div class="info-contact-links" style="margin-top:.7rem"><a class="info-contact-link" href="datenschutz.html">Datenschutzerklärung</a></div>
     </div>
     <div class="info-back-row">
       <button class="big-btn" style="padding:.8rem 2rem" onclick="goToStart()">← Zurück</button>
@@ -260,7 +276,7 @@
 <!-- SPIELMODUS AUSWAHL -->
 <div class="screen" id="play-menu-screen">
   <div class="logo" style="margin-bottom:1rem">
-    <h1 style="transform:none;opacity:1;font-size:clamp(1.6rem,6vw,2.8rem)">Spielen</h1>
+    <h2 style="transform:none;opacity:1;font-size:clamp(1.6rem,6vw,2.8rem)">Spielen</h2>
     <p style="transform:none;opacity:1">Wähle einen Modus</p>
   </div>
   <div class="menu-grid">
@@ -343,7 +359,7 @@
       </div>
       <div id="daily-lb-list"><div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Lade…</div></div>
       <div id="daily-champions-section" style="display:none">
-        <div class="daily-champions-title">🏆 Champions von gestern</div>
+        <div class="daily-champions-title"><span class="ico ico-gold" data-icon="trophy"></span> Champions von gestern</div>
         <div id="daily-champions-list"></div>
       </div>
     </div>
@@ -353,7 +369,7 @@
 <!-- QR BEITRETEN -->
 <div class="screen" id="qr-join-screen">
   <div class="logo" style="margin-bottom:1rem">
-    <h1 style="transform:none;opacity:1;font-size:clamp(1.8rem,7vw,3rem)">Wels<em>Guessr</em></h1>
+    <h2 style="transform:none;opacity:1;font-size:clamp(1.8rem,7vw,3rem)">Wels<em>Guessr</em></h2>
   </div>
   <div class="qr-join-box">
     <h2>Raum beitreten</h2>
@@ -378,14 +394,14 @@
     <div class="lb-sort-row">
       <span class="lb-sort-label">Sortieren:</span>
       <button class="lb-sort-btn active" id="lb-sort-pts" onclick="setLbSort('pts')">◆ Punkte</button>
-      <button class="lb-sort-btn" id="lb-sort-date" onclick="setLbSort('date')">📅 Datum</button>
+      <button class="lb-sort-btn" id="lb-sort-date" onclick="setLbSort('date')"><span class="ico" data-icon="calendar"></span> Datum</button>
     </div>
     <div id="lb-list"><div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Lade…</div></div>
     <div class="divider"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">
       <span id="lb-admin-hint" style="font-size:.58rem;color:var(--mist)"></span>
       <div style="display:flex;gap:.5rem">
-        <button id="lb-accounts-btn" class="big-btn" style="display:none;padding:.6rem 1rem;font-size:.72rem" onclick="openAdminAccounts()">👥 Accounts</button>
+        <button id="lb-accounts-btn" class="big-btn" style="display:none;padding:.6rem 1rem;font-size:.72rem" onclick="openAdminAccounts()"><span class="ico" data-icon="group"></span> Accounts</button>
         <button class="big-btn" style="padding:.6rem 1rem;font-size:.72rem" onclick="closeModal('lb-modal')">Schließen</button>
       </div>
     </div>
@@ -436,7 +452,7 @@
         <button class="big-btn" onclick="joinRoom()" style="padding:.65rem 1rem">Beitreten</button>
       </div>
       <div class="modal-error" id="vs-join-error"></div>
-      <button class="vs-scan-btn" onclick="openQrScanner()">📷 QR scannen</button>
+      <button class="vs-scan-btn" onclick="openQrScanner()"><span class="ico" data-icon="camera"></span> QR scannen</button>
     </div>
     <!-- verstecktes Feld für Host-Namen -->
     <input type="hidden" id="vs-host-name">
@@ -630,7 +646,7 @@
   <div id="play-again-vote"></div>
   <div style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center">
     <button class="big-btn primary" id="save-btn" onclick="saveScore()">Punkte eintragen</button>
-    <button class="big-btn" id="share-btn" onclick="shareResult()" style="display:none">📤 Teilen</button>
+    <button class="big-btn" id="share-btn" onclick="shareResult()" style="display:none"><span class="ico" data-icon="share"></span> Teilen</button>
     <button class="big-btn" id="play-again-btn" onclick="votePlayAgain()">Nochmal</button>
     <button class="big-btn" onclick="goHome()">Hauptmenü</button>
   </div>
@@ -739,8 +755,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=37"></script>
-<script src="patches.js?v=15"></script>
+<script src="script.js?v=38"></script>
+<script src="patches.js?v=16"></script>
 <script src="nav.js?v=11"></script>
 <script src="profile.js?v=6"></script><!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">
@@ -820,7 +836,7 @@
         <div class="profile-name" id="profile-name-display">—</div>
         <div class="profile-since" id="profile-since"></div>
         <div class="profile-badges" id="profile-badges"></div>
-        <button id="profile-self-edit-btn" class="profile-edit-btn" style="display:none">✏️ Profil bearbeiten</button>
+        <button id="profile-self-edit-btn" class="profile-edit-btn" style="display:none"><span class="ico" data-icon="edit"></span> Profil bearbeiten</button>
       </div>
     </div>
     <div class="profile-stats-grid">

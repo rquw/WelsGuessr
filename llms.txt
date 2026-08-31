@@ -1,0 +1,28 @@
+# WelsGuessr
+
+> WelsGuessr ist ein kostenloses Geo-Guessing-Browserspiel für die Stadt Wels (Oberösterreich): Du siehst ein zufälliges Straßenpanorama und musst den Ort auf der Karte erraten. Je näher dein Tipp, desto mehr Punkte.
+
+Privates Hobby-Projekt von Fabio. Keine Werbung, kein Tracking.
+
+## Modi
+- Einzelspieler: 5 Runden, je näher der Tipp desto mehr Punkte
+- Tägliche Challenge: ein Spot pro Tag, gleich für alle
+- Mehrspieler: privater Raum mit Freunden (Host bestimmt die Regeln)
+- Hitzewelle: 12 Runden mit steigender Mindestpunktzahl
+- Blitz: so viele Runden wie möglich in 60 Sekunden
+
+## Features
+- Globale Bestenliste (Woche / Monat / Alle)
+- Profile mit Level, XP und Erfolgen
+- Tages-Champion-System
+
+## Seiten
+- [Startseite & Spiel](https://rquw.github.io/WelsGuessr/)
+- [Datenschutzerklärung](https://rquw.github.io/WelsGuessr/datenschutz.html)
+
+## Technik
+- Statische Website auf GitHub Pages
+- Datenbank: Supabase; Profilbilder: Cloudinary; Panoramen: Google Street View via jsDelivr-CDN
+
+## Kontakt
+- E-Mail: schwaiger.fabio0907@gmail.com

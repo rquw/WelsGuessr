@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
           var lv = pgLevel(xp), minx = pgLevelMinXp(lv), nextx = pgLevelMinXp(lv + 1);
           var pct = Math.max(0, Math.min(100, Math.round((xp - minx) / (nextx - minx) * 100)));
           var badges2 = document.getElementById('profile-badges');
-          if (badges2) { var lvb = document.createElement('span'); lvb.className = 'profile-badge lvl-badge'; lvb.textContent = '⭐ Level ' + lv; badges2.insertBefore(lvb, badges2.firstChild); }
+          if (badges2) { var lvb = document.createElement('span'); lvb.className = 'profile-badge lvl-badge'; lvb.innerHTML = (typeof icon==='function'?icon('star'):'') + ' Level ' + lv; badges2.insertBefore(lvb, badges2.firstChild); }
           var info2 = document.querySelector('#profile-screen .profile-header-info') || document.querySelector('#profile-screen .profile-header');
           var xpEl = document.getElementById('profile-xp');
           if (!xpEl && info2) { xpEl = document.createElement('div'); xpEl.id = 'profile-xp'; info2.appendChild(xpEl); }
