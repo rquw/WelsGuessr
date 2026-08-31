@@ -546,6 +546,18 @@ body::before{
 #next-vote-timer{display:inline-block;color:var(--gold);margin-left:.3rem}
 #dc-notice{display:none;position:fixed;top:.75rem;left:50%;transform:translateX(-50%);background:#b03a2e;color:#fff;font-size:.65rem;padding:.4rem 1rem;border-radius:20px;z-index:300;white-space:nowrap}
 #dc-notice.show{display:block}
+
+/* Kleine Server-/Verbindungs-Meldung */
+#server-notice{display:none;position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);max-width:min(420px,92vw);background:rgba(176,58,46,.96);color:#fff;font-family:'DM Mono',monospace;font-size:.62rem;line-height:1.45;letter-spacing:.02em;padding:.55rem .9rem;border-radius:12px;z-index:400;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.42)}
+#server-notice.show{display:block}
+
+/* Abschieds-Modal */
+.farewell-modal-inner{width:min(468px,94vw);text-align:left}
+.farewell-title{text-align:center;margin-bottom:.3rem}
+.farewell-list{list-style:none;padding:0;margin:.7rem 0 .3rem;display:flex;flex-direction:column;gap:.55rem}
+.farewell-list li{position:relative;padding-left:1.15rem;font-size:.82rem;line-height:1.5;color:var(--cream)}
+.farewell-list li::before{content:'•';position:absolute;left:.1rem;color:var(--gold-light)}
+.farewell-sign{text-align:right;font-style:italic;color:var(--mist);font-size:.72rem;margin:.5rem 0 .9rem}
 #vs-their-guess-row{display:none;font-size:.67rem;color:var(--mist);text-align:center}
 #play-again-vote{display:none;font-size:.65rem;color:var(--mist);text-align:center;margin-top:-.5rem}
 
@@ -1340,6 +1352,15 @@ body::before{
 #game-screen.mp-gray #pano-strip img{filter:grayscale(1)!important}
 #game-screen.mp-blur #pano-strip img{filter:blur(7px)!important}
 #game-screen.mp-gray.mp-blur #pano-strip img{filter:grayscale(1) blur(7px)!important}
+/* Modifier auch auf die Start-Erinnerung (Karten-Vorschau) anwenden, sonst umgehbar */
+#game-screen.mp-gray #start-reminder .sr-strip img{filter:grayscale(1)!important}
+#game-screen.mp-blur #start-reminder .sr-strip img{filter:blur(7px)!important}
+#game-screen.mp-gray.mp-blur #start-reminder .sr-strip img{filter:grayscale(1) blur(7px)!important}
+
+/* Vorlade-Overlay für Einzelspieler (lädt erst alle 5 Panoramas) */
+#pano-preloader{position:fixed;inset:0;z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1.1rem;background:radial-gradient(ellipse at 50% 40%,#13261a,#070d09 75%)}
+#pano-preloader.show{display:flex}
+#pano-preloader .ppl-text{font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.08em;color:var(--gold-light)}
 
 /* ── Modifier: Toggle-Switches mit Beschreibung ── */
 .mp-mods{display:flex;flex-direction:column;gap:0;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:.3rem .8rem}

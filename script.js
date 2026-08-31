@@ -31,23 +31,66 @@ async function sbFetch(path, method, body) {
   var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
   var to = ctrl ? setTimeout(function () { try { ctrl.abort(); } catch (_) {} }, 8000) : null;
   try {
-    var r = await fetch(SB_URL + '/rest/v1/' + path, {
-      method: method,
-      headers: {
-        'apikey': SB_KEY,
-        'Authorization': 'Bearer ' + SB_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: ctrl ? ctrl.signal : undefined
-    });
+    var r;
+    try {
+      r = await fetch(SB_URL + '/rest/v1/' + path, {
+        method: method,
+        headers: {
+          'apikey': SB_KEY,
+          'Authorization': 'Bearer ' + SB_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: ctrl ? ctrl.signal : undefined
+      });
+    } catch (netErr) {
+      // Verbindungs-/Netzwerkfehler (Server nicht erreichbar oder kein Internet)
+      if (typeof reportServerTrouble === 'function') reportServerTrouble();
+      throw netErr;
+    }
     var t = await r.text();
     var parsed = t ? JSON.parse(t) : null;
-    if (!r.ok) { throw parsed || new Error('Request failed'); }
+    if (!r.ok) {
+      if ((r.status >= 500 || r.status === 0) && typeof reportServerTrouble === 'function') reportServerTrouble();
+      throw parsed || new Error('Request failed');
+    }
+    if (typeof reportServerOk === 'function') reportServerOk();
     return parsed;
   } finally { if (to) clearTimeout(to); }
 }
+
+// ── Server-/Verbindungsstatus: kleine Meldung, bei 100% Server-Ausfall das Abschieds-Modal ──
+var _srvFailCount = 0, _srvProbing = false, _serverDownShown = false;
+function showServerNotice(){ var e = document.getElementById('server-notice'); if (e) e.classList.add('show'); }
+function hideServerNotice(){ var e = document.getElementById('server-notice'); if (e) e.classList.remove('show'); }
+function reportServerOk(){ _srvFailCount = 0; hideServerNotice(); }
+function reportServerTrouble(){
+  _srvFailCount++;
+  if (_srvFailCount >= 2) showServerNotice();               // ab 2 Fehlern die kleine Meldung
+  if (_srvFailCount >= 2 && !_serverDownShown && !_srvProbing) probeServerVsInternet();
+}
+// prüft, ob das Internet des Nutzers geht, aber unser Server nicht → dann ist es 100% der Server
+async function probeServerVsInternet(){
+  _srvProbing = true;
+  var online = (typeof navigator === 'undefined') || navigator.onLine !== false, reachable = false;
+  if (online){
+    try{
+      var c = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var tt = c ? setTimeout(function(){ try{ c.abort(); }catch(_){ } }, 4000) : null;
+      await fetch('https://www.gstatic.com/generate_204', { mode:'no-cors', cache:'no-store', signal: c ? c.signal : undefined });
+      if (tt) clearTimeout(tt);
+      reachable = true;
+    }catch(e){ reachable = false; }
+  }
+  _srvProbing = false;
+  if (online && reachable){ _serverDownShown = true; hideServerNotice(); showFarewellModal(); }
+}
+function showFarewellModal(){ if (typeof openModal === 'function') openModal('farewell-modal'); else { var m = document.getElementById('farewell-modal'); if (m) m.classList.add('open'); } }
+function closeFarewell(){ if (typeof closeModal === 'function') closeModal('farewell-modal'); else { var m = document.getElementById('farewell-modal'); if (m) m.classList.remove('open'); } }
+
+// Perf: sobald die Supabase-URL bekannt ist, Verbindung vorwärmen
+(function(){ try{ if (window._cfg && window._cfg.u){ var l = document.createElement('link'); l.rel = 'preconnect'; l.href = window._cfg.u; l.crossOrigin = 'anonymous'; (document.head||document.documentElement).appendChild(l); } }catch(e){} })();
 
 // ── Audio ──
 var AC = new (window.AudioContext || window.webkitAudioContext)();
@@ -587,8 +630,9 @@ function loadPano(loc){
   if(_pc){ _ov=document.createElement('div'); _ov.className='pano-loading'; _ov.innerHTML='<div class="pano-spinner"></div>'; _pc.appendChild(_ov); }   // sauberer Lade-Spinner bis die Bilder da sind
   var _disp=[0,90,180,270,0,90,180,270], _ld=0;
   function _tileDone(){ if(++_ld>=_disp.length&&_ov&&_ov.parentNode){_ov.parentNode.removeChild(_ov);} }
-  _disp.forEach(function(h){
+  _disp.forEach(function(h,idx){
     var img=document.createElement('img');
+    img.decoding='async'; try{ img.fetchPriority=(idx<4?'high':'low'); }catch(e){}   // schnelleres Dekodieren/Priorisieren
     img.onload=function(){ S._panoFailStreak=0; _tileDone(); }; img.onerror=_tileDone;
     img.src=panoFace(loc.id,h);
     img.draggable=false; img.oncontextmenu=function(e){e.preventDefault();}; strip.appendChild(img);
@@ -791,6 +835,22 @@ function updateSurvivalHUD(){
   badge.classList.add('show');
 }
 
+// Lädt alle Panorama-Bilder einer Standort-Liste vor (4 Blickrichtungen je Standort)
+function preloadPanoramas(locs,onProgress){
+  return new Promise(function(resolve){
+    var srcs=[];
+    (locs||[]).forEach(function(l){ if(l&&l.id)[0,90,180,270].forEach(function(h){srcs.push(panoFace(l.id,h));}); });
+    if(!srcs.length){resolve();return;}
+    var total=srcs.length,done=0,finished=false;
+    function tick(){ done++; if(onProgress)onProgress(done,total); if(done>=total&&!finished){finished=true;resolve();} }
+    srcs.forEach(function(src){ var im=new Image(); im.onload=im.onerror=tick; im.src=src; });
+    setTimeout(function(){ if(!finished){finished=true;resolve();} },10000);   // Fallback, falls Bilder hängen
+  });
+}
+function showPanoPreloader(){ var el=$('pano-preloader'); if(el){var t=$('ppl-text');if(t)t.textContent='Panoramas werden geladen…';el.classList.add('show');} }
+function updatePanoPreloader(done,total){ var t=$('ppl-text'); if(t)t.textContent='Panoramas werden geladen… '+done+' / '+total; }
+function hidePanoPreloader(){ var el=$('pano-preloader'); if(el)el.classList.remove('show'); }
+
 function startSolo(){
   resetScoreSavedUI(); resumeAC(); sfx.start(); S.mode='solo'; S.roundsTotal=5;
   var hb=$('back-to-home-btn'); if(hb)hb.style.display='block';
@@ -798,7 +858,10 @@ function startSolo(){
   if(S.vsPollInterval){clearInterval(S.vsPollInterval);S.vsPollInterval=null;}
   S.locations=shuffle(LOCATIONS.slice()).slice(0,S.roundsTotal);
   $('vs-badge').style.display='none'; $('vs-strip').style.display='none'; $('round-total').textContent=S.roundsTotal;
-  show('game-screen'); initPanoDrag(); loadRound();
+  show('game-screen'); initPanoDrag();
+  // erst alle 5 Panoramas laden, dann die erste Runde starten (keine Lade-Ruckler mehr im Spiel)
+  showPanoPreloader();
+  preloadPanoramas(S.locations,updatePanoPreloader).then(function(){ hidePanoPreloader(); loadRound(); });
 }
 
 function startSurvival(){
@@ -1436,7 +1499,14 @@ function setLeaderboardTab(tab){
 function setLbSort(sort){
   S.lbSort=sort;$('lb-sort-pts').classList.toggle('active',sort==='pts');$('lb-sort-date').classList.toggle('active',sort==='date');loadLeaderboardData();
 }
-function openLeaderboard(){openModal('lb-modal');loadLeaderboardData();}
+function openLeaderboard(){
+  openModal('lb-modal');
+  // Beim Wiederöffnen nicht neu laden, wenn die Daten < 30s alt und schon passend gerendert sind
+  var tab=S.leaderboardTab, key=tab+'|'+S.lbSort+'|'+(lbAdminMode?1:0);
+  var c=_lbCache[tab], fresh=c&&(Date.now()-c.ts<30000);
+  if(fresh && key===_lbRenderedKey && $('lb-list')&&$('lb-list').querySelector('.lb-row'))return;
+  loadLeaderboardData();
+}
 
 // ── Admin-Tool: Accounts-Übersicht mit Schnellzugriff ──
 var _adminAccounts=null;
@@ -1605,15 +1675,27 @@ function animateTotalPoints(el,from,to){
 
 var lbExpandedNames={},lbSubSort={};
 
-async function loadLeaderboardData(){
-  $('lb-list').innerHTML='<div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Lade…</div>';
+var _lbCache={};        // tab -> {ts, rows, allPlayers}: 30s-Cache, kein Reload bei jedem Öffnen
+var _lbRenderedKey='';  // tab|sort|admin der aktuell angezeigten Liste
+function _lbInvalidate(){ _lbCache={}; _lbRenderedKey=''; }
+
+async function loadLeaderboardData(force){
+  var tab=S.leaderboardTab;
+  var cached=_lbCache[tab], fresh=cached&&(Date.now()-cached.ts<30000);
   try{
-    var path='wels_scores?select=id,name,score,created_at';
-    if(S.leaderboardTab==='week') path+='&created_at=gte.'+getWeekStartKeyVienna()+'T00:00:00';
-    else if(S.leaderboardTab==='month'){var p=getViennaParts();path+='&created_at=gte.'+p.year+'-'+String(p.month).padStart(2,'0')+'-01T00:00:00';}
-    path+='&order=score.desc&limit=10000';   // alle Einträge holen, nicht nur Top 200
-    var rows=await sbFetch(path);
-    rows=rows||[];
+    var rows, allPlayers;
+    if(fresh && !force){
+      rows=cached.rows; allPlayers=cached.allPlayers;   // aus Cache: kein Netz, kein Lade-Spinner
+    } else {
+      $('lb-list').innerHTML='<div style="font-size:.7rem;color:var(--mist);text-align:center;padding:1rem">Lade…</div>';
+      var path='wels_scores?select=id,name,score,created_at';
+      if(tab==='week') path+='&created_at=gte.'+getWeekStartKeyVienna()+'T00:00:00';
+      else if(tab==='month'){var p=getViennaParts();path+='&created_at=gte.'+p.year+'-'+String(p.month).padStart(2,'0')+'-01T00:00:00';}
+      path+='&order=score.desc&limit=10000';   // alle Einträge holen, nicht nur Top 200
+      rows=(await sbFetch(path))||[];
+      try{ allPlayers=(await sbFetch('players?select=name,vorname,nachname,avatar_url&limit=10000'))||[]; }catch(e){ allPlayers=[]; }
+      _lbCache[tab]={ts:Date.now(),rows:rows,allPlayers:allPlayers};
+    }
     lbAdminMode?$('lb-list').classList.add('admin-mode'):$('lb-list').classList.remove('admin-mode');
     var _accBtn=$('lb-accounts-btn'); if(_accBtn)_accBtn.style.display=lbAdminMode?'':'none';
     var playerBest={},playerAll={};
@@ -1622,16 +1704,13 @@ async function loadLeaderboardData(){
       if(!playerBest[key]){playerBest[key]=r;playerAll[key]=[];}
       playerAll[key].push(r);if(r.score>playerBest[key].score)playerBest[key]=r;
     });
-    // Realnamen + Avatare ALLER Spieler in einem Request (deckt auch 0-Punkte-Accounts ab)
-    var playerRealNames={},playerAvatars={},allPlayers=[];
-    try{
-      allPlayers=await sbFetch('players?select=name,vorname,nachname,avatar_url&limit=10000')||[];
-      allPlayers.forEach(function(p){
-        if(!p.name)return;var k=p.name.toLowerCase();
-        if(p.vorname)playerRealNames[k]=p.vorname+(p.nachname?' '+p.nachname:'');
-        if(p.avatar_url)playerAvatars[k]=p.avatar_url;
-      });
-    }catch(e){}
+    // Realnamen + Avatare aus der (ggf. gecachten) Spieler-Liste
+    var playerRealNames={},playerAvatars={};
+    (allPlayers||[]).forEach(function(p){
+      if(!p.name)return;var k=p.name.toLowerCase();
+      if(p.vorname)playerRealNames[k]=p.vorname+(p.nachname?' '+p.nachname:'');
+      if(p.avatar_url)playerAvatars[k]=p.avatar_url;
+    });
     // Admin: auch Accounts ohne Einträge zeigen (0 Punkte)
     if(lbAdminMode){
       allPlayers.forEach(function(p){
@@ -1718,6 +1797,7 @@ async function loadLeaderboardData(){
       $('lb-list').appendChild(subList);
       setTimeout(function(){rowEl.classList.add('in');},Math.min(i,18)*40);
     });
+    _lbRenderedKey=tab+'|'+S.lbSort+'|'+(lbAdminMode?1:0);
   }catch(e){$('lb-list').innerHTML='<div style="font-size:.7rem;color:#e8826a;text-align:center;padding:1rem">Fehler beim Laden.</div>';console.error('Leaderboard error:',e);}
 }
 
@@ -1744,7 +1824,8 @@ async function deleteLbEntry(id,wrap,isSub){
     var res=await sbFetch('wels_scores?id=eq.'+id,'DELETE');
     if(!res||!res.length){alert('Löschen fehlgeschlagen (keine Berechtigung?). DELETE-Richtlinie (RLS) in Supabase prüfen.');return;}
     tone(300,'sawtooth',.1,.06);
-    if(isSub){if(wrap)wrap.remove();loadLeaderboardData();}else{if(wrap)wrap.remove();}
+    _lbInvalidate();   // Daten geändert → Cache verwerfen
+    if(isSub){if(wrap)wrap.remove();loadLeaderboardData(true);}else{if(wrap)wrap.remove();}
   }catch(e){alert('Fehler beim Löschen: '+(e&&e.message?e.message:JSON.stringify(e)));}
 }
 
@@ -1794,7 +1875,7 @@ async function submitAdminEditPlayer(){
       await sbFetch('players?name=ilike.'+encodeURIComponent(newName),'PATCH',{vorname:vorname||null,nachname:nachname||null});
     }catch(_){}
     closeModal('admin-edit-player-modal');tone(660,'sine',.1,.08);
-    loadLeaderboardData();
+    _lbInvalidate();loadLeaderboardData(true);
     // Profil aktualisieren, falls offen
     if($('profile-screen')&&$('profile-screen').classList.contains('active'))openProfile(newName);
   }catch(e){errEl.textContent='Fehler: '+(e&&e.message?e.message:JSON.stringify(e));}
@@ -1820,7 +1901,8 @@ async function submitAdminAddEntry(){
   var created_at=date+'T'+time+':00+02:00';
   try{
     await sbFetch('wels_scores','POST',{name:_adminAddPlayer,score:score,created_at:created_at});
-    closeModal('admin-add-entry-modal');loadLeaderboardData();tone(660,'sine',.1,.08);
+    _lbInvalidate();
+    closeModal('admin-add-entry-modal');loadLeaderboardData(true);tone(660,'sine',.1,.08);
   }catch(e){$('admin-add-error').textContent='Fehler: '+(e&&e.message?e.message:JSON.stringify(e));}
 }
 
@@ -1959,7 +2041,7 @@ async function autoSaveLoggedInUser(){
       if(!res||!res.ok){if(res&&res.error==='ALREADY_PLAYED_TODAY'){markDailyPlayedLocally(S.dailyKey);markScoreSavedUI();}return;}
       markDailyPlayedLocally(S.dailyKey);markScoreSavedUI();updateDailyPlayAvailability();return;
     }
-    await sbFetch('wels_scores','POST',{name:session.name,score:S.score});markScoreSavedUI();
+    await sbFetch('wels_scores','POST',{name:session.name,score:S.score});markScoreSavedUI();if(typeof _lbInvalidate==='function')_lbInvalidate();
   }catch(e){console.warn('Auto-save failed:',e);}
 }
 
@@ -1987,7 +2069,7 @@ async function submitScore(){
       if(!res||!res.ok){$('save-error').textContent=(res&&res.error==='ALREADY_PLAYED_TODAY')?'Du hast die Daily heute auf diesem Gerät schon gespielt.':'Fehler beim Speichern.';$('save-submit-btn').disabled=false;return;}
       markDailyPlayedLocally(S.dailyKey);closeModal('save-modal');markScoreSavedUI();await loadDailyBoard();updateDailyPlayAvailability();show('daily-screen');return;
     }
-    await sbFetch('wels_scores','POST',{name:name,score:S.score});closeModal('save-modal');markScoreSavedUI();openLeaderboard();
+    await sbFetch('wels_scores','POST',{name:name,score:S.score});closeModal('save-modal');markScoreSavedUI();if(typeof _lbInvalidate==='function')_lbInvalidate();openLeaderboard();
   }catch(e){$('save-error').textContent=(e&&e.error==='ALREADY_PLAYED_TODAY')?'Du hast die Daily heute auf diesem Gerät schon gespielt.':'Fehler beim Speichern.';$('save-submit-btn').disabled=false;}
 }
 
@@ -2584,13 +2666,17 @@ function mpHostMaybeAdvance(room,players){
 // ── Modifiers + Rundenuhr ──
 function applyMpModifiers(){
   var mod=S.mpModifiers||{};
-  try{ if(window.NAV){ NAV.locked=!!mod.noMove; var ov=document.getElementById('nav-arrows'); if(ov)ov.classList.toggle('nav-locked',!!mod.noMove);} }catch(e){}
+  // „nicht fahren": dauerhafte Sperre setzen (überlebt den loadPano/onPanoShown-Reset)
+  try{ if(window.NAV){ NAV.movementLocked=!!mod.noMove; var ov=document.getElementById('nav-arrows'); if(ov)ov.classList.toggle('nav-locked',!!mod.noMove);} }catch(e){}
   S.mpNoLook=!!mod.noLook;
   var dh=$('drag-hint');if(dh&&mod.noLook)dh.style.display='none';
   var gs=$('game-screen');
   if(gs){ gs.classList.toggle('mp-gray',!!mod.grayscale); gs.classList.toggle('mp-blur',!!mod.blur); }
 }
-function mpClearMods(){ var gs=$('game-screen'); if(gs){gs.classList.remove('mp-gray','mp-blur');} S.mpNoLook=false; }
+function mpClearMods(){
+  var gs=$('game-screen'); if(gs){gs.classList.remove('mp-gray','mp-blur');} S.mpNoLook=false;
+  try{ if(window.NAV){ NAV.movementLocked=false; var ov=document.getElementById('nav-arrows'); if(ov)ov.classList.remove('nav-locked');} }catch(e){}
+}
 function mpClearRoundClock(){ if(S._mpClock){clearInterval(S._mpClock);S._mpClock=null;} }
 function mpStartRoundClock(){
   mpClearRoundClock();
@@ -3155,6 +3241,17 @@ var _wKeyDown=false;
 document.addEventListener('keydown',function(e){ if(e.key==='w'||e.key==='W')_wKeyDown=true; });
 document.addEventListener('keyup',function(e){ if(e.key==='w'||e.key==='W')_wKeyDown=false; });
 window.addEventListener('blur',function(){ _wKeyDown=false; });
+
+// Test-Trigger: Buchstaben E-R-R-O-R der Reihe nach tippen → Abschieds-Modal
+(function(){
+  var seq='error', buf='';
+  document.addEventListener('keydown',function(e){
+    var tag=e.target&&e.target.tagName; if(tag==='INPUT'||tag==='TEXTAREA')return;
+    var k=(e.key||'').toLowerCase(); if(k.length!==1||k<'a'||k>'z')return;
+    buf=(buf+k).slice(-seq.length);
+    if(buf===seq){ buf=''; if(typeof showFarewellModal==='function')showFarewellModal(); }
+  });
+})();
 
 // ── MEHR GUESSR DROPDOWN ──
 function toggleMehrGuessr(e){

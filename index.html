@@ -4,11 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WelsGuessr</title>
+<!-- Performance: Verbindungen zu Bild-CDN, Fonts & Karten früh aufbauen (Fotos laden schneller) -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
 <script>document.title='WelsGuessr';</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="styles.css?v=26">
+<link rel="stylesheet" href="styles.css?v=28">
 </head>
 <body>
 <div id="round-flash"></div>
@@ -18,6 +23,25 @@
 <div id="new-highscore-banner"><span>🏆 NEUER HIGHSCORE!</span></div>
 <div id="mp-countdown"></div>
 <div class="screen-backdrop" id="screen-backdrop"></div>
+<div id="pano-preloader"><div class="pano-spinner"></div><div class="ppl-text" id="ppl-text">Panoramas werden geladen…</div></div>
+<div id="server-notice">Entweder hast du keine Internetverbindung oder die Server von WelsGuessr sind inaktiv (permanent).</div>
+
+<!-- ABSCHIEDS-MODAL (Server dauerhaft aus / E-R-R-O-R zum Testen) -->
+<div class="modal-bg" id="farewell-modal">
+  <div class="modal farewell-modal-inner">
+    <h2 class="farewell-title">👋 Das war's!</h2>
+    <ul class="farewell-list">
+      <li>Am 31. August ist das letzte Update für WelsGuessr, und zwar die Fotos laden schneller.</li>
+      <li>Danke für alle, die WelsGuessr gespielt haben.</li>
+      <li>Es war richtig lustig, aktiv von euch Vorschläge zu hören und zu implementieren, und das Feedback zu hören.</li>
+      <li>WelsGuessr wird noch so lange wie es geht online sein. Werde nicht mehr für die Server zahlen, also mal schaun was passiert. Linus hat sogar einen Euro gespendet. Sehr lieb von dir.</li>
+      <li>Unsere Datenbank ist auch massiv gewachsen, mit ca. 4.600 Einträgen!!</li>
+      <li>Danke für alles! :)</li>
+    </ul>
+    <div class="farewell-sign">– ein typ der nicht aus wels kommt</div>
+    <button class="big-btn primary" onclick="closeFarewell()">Schließen &amp; nochmal versuchen</button>
+  </div>
+</div>
 <div id="share-canvas-wrap"><canvas id="share-canvas"></canvas></div>
 
 <!-- gegner hat verlassen overlay -->
@@ -715,9 +739,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js?v=3"></script>
 <script src="text.js?v=2"></script>
-<script src="script.js?v=34"></script>
+<script src="script.js?v=37"></script>
 <script src="patches.js?v=15"></script>
-<script src="nav.js?v=9"></script>
+<script src="nav.js?v=11"></script>
 <script src="profile.js?v=6"></script><!-- CHANGELOG MODAL -->
 <div class="modal-bg" id="changelog-modal">
   <div class="modal changelog-modal-inner" id="changelog-modal-inner">

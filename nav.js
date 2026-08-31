@@ -24,9 +24,11 @@
     viewId: null,    // aktuell angezeigtes Pano (nach Fahren != S.current)
     startId: null,   // Start-Pano der Runde (zu raten, Score-Quelle)
     arrows: [],      // [{id, bearing, dist}]
-    locked: false,   // Transition läuft, Eingaben ignorieren
+    locked: false,   // Transition läuft, Eingaben ignorieren (kurzlebig)
+    movementLocked: false,  // dauerhafte Sperre (Mehrspieler-Modifier „nicht fahren")
     els: [],         // Pfeil-DOM-Elemente
   };
+  function navBlocked() { return NAV.locked || NAV.movementLocked; }
   window.NAV = NAV;
 
   function $id(id) { return document.getElementById(id); }
@@ -144,12 +146,12 @@
   function updateReturnBtn() {
     var btn = ensureReturnBtn();
     if (!btn) return;
-    if (drivenAway() && !NAV.locked) btn.classList.add('show');
+    if (drivenAway() && !navBlocked()) btn.classList.add('show');
     else btn.classList.remove('show');
   }
   // springt zurück zum Start-Pano
   function returnToStart() {
-    if (NAV.locked || !NAV.startId || NAV.viewId === NAV.startId) return;
+    if (navBlocked() || !NAV.startId || NAV.viewId === NAV.startId) return;
     var target = locById(NAV.startId);
     if (!target) return;
     NAV.locked = true;
@@ -233,7 +235,7 @@
       el.style.top = y + 'px';
       el.style.transform = 'translate(-50%,-50%) scale(' + scale.toFixed(3) + ')';
       el.style.opacity = (0.55 + 0.45 * fade).toFixed(3);
-      el.style.pointerEvents = NAV.locked ? 'none' : 'auto';
+      el.style.pointerEvents = navBlocked() ? 'none' : 'auto';
     });
   }
 
@@ -278,6 +280,7 @@
     strip.innerHTML = '';
     [0, 90, 180, 270, 0, 90, 180, 270].forEach(function (h) {
       var img = document.createElement('img');
+      img.decoding = 'async';
       img.src = navImg(id, h);
       img.draggable = false;
       img.oncontextmenu = function (e) { e.preventDefault(); };
@@ -354,7 +357,7 @@
 
   // Fahren = sofortiger Sprung
   function driveTo(arrow) {
-    if (NAV.locked || !arrow) return;
+    if (navBlocked() || !arrow) return;
     var target = locById(arrow.id);
     if (!target) return;
     NAV.locked = true; // gegen Doppel-Trigger beim Preload
@@ -398,15 +401,17 @@
     NAV.startId = loc.id;          // zu ratende Position
     setReminderImages(loc.id);
     hideReminder(); wireReminder();
-    var ov = $id('nav-arrows'); if (ov) ov.classList.remove('nav-locked');
+    // dauerhafte Sperre (z.B. „nicht fahren") bleibt über Rundenwechsel hinweg bestehen
+    var ov = $id('nav-arrows'); if (ov) ov.classList.toggle('nav-locked', !!NAV.movementLocked);
     updateReturnBtn();             // am Start, also Button weg
     NAV.arrows = computeNeighbors(loc);
-    // warten bis der Strip Maße hat, dann Pfeile rendern
+    // Pfeile erst zeigen, wenn das Bild wirklich geladen ist (nicht über dem Lade-Spinner)
     var tries = 0;
     (function waitStrip() {
       var strip = $id('pano-strip');
-      if (strip && strip.scrollWidth > 0) { renderArrows(); return; }
-      if (tries++ < 40) setTimeout(waitStrip, 60);
+      var img = strip && strip.querySelector('img');
+      if (strip && strip.scrollWidth > 0 && img && img.complete && img.naturalWidth > 0) { renderArrows(); return; }
+      if (tries++ < 120) setTimeout(waitStrip, 60);
     })();
   }
 
@@ -427,7 +432,7 @@
 
   // Tastatur: ↑/W vorwärts, ↓/S rückwärts
   document.addEventListener('keydown', function (e) {
-    if (NAV.locked || !gameActive()) return;
+    if (navBlocked() || !gameActive()) return;
     var tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     var k = e.key;
